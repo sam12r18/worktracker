@@ -1,0 +1,4 @@
+<?php
+namespace App\Models;
+use Illuminate\Database\Eloquent\Concerns\HasUuids; use Illuminate\Database\Eloquent\Model;
+class Invoice extends Model { use HasUuids; protected $fillable=['user_id','customer_id','number','status','period_start','period_end','currency','subtotal_minor','adjustment_minor','tax_minor','total_minor','notes','finalized_at','untyped_activity_count','nonbillable_activity_count']; protected $casts=['period_start'=>'date','period_end'=>'date','finalized_at'=>'datetime','subtotal_minor'=>'integer','adjustment_minor'=>'integer','tax_minor'=>'integer','total_minor'=>'integer','untyped_activity_count'=>'integer','nonbillable_activity_count'=>'integer']; public function customer(){return $this->belongsTo(Customer::class);} public function items(){return $this->hasMany(InvoiceItem::class)->orderBy('started_at');} }
