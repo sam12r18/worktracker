@@ -1,4 +1,4 @@
-# cPanel deployment — alpha.6 baseline
+# cPanel deployment — alpha.7.2 baseline
 
 ## Non-negotiable layout
 The web domain/subdomain document root must point to Laravel's `public/` directory. Do not expose the Laravel project root, `.env`, `vendor`, `storage`, or `bootstrap/cache` directly through the public web root.
@@ -6,19 +6,19 @@ The web domain/subdomain document root must point to Laravel's `public/` directo
 Recommended layout when cPanel allows a custom document root:
 
 ```text
-/home/ACCOUNT/apps/worktracker-server/       # Laravel root, not public
-/home/ACCOUNT/apps/worktracker-server/public # subdomain document root
+/home/ACCOUNT/worktracker/apps/api/        # Laravel root, not public
+/home/ACCOUNT/worktracker/apps/api/public # subdomain document root
 ```
 
 If the hosting plan does not allow the document root to target `public/`, do not move Laravel's `index.php` into the application root. Use a subdomain/addon-domain configuration that can target `public/`, or ask the host to configure it.
 
 ## Requirements
-- PHP 8.3+ for the Laravel 13 baseline.
+- PHP 8.2+ for the Laravel 12 backend baseline.
 - Required Laravel PHP extensions plus `pdo_mysql`.
 - MySQL/MariaDB using InnoDB for WorkTracker foreign keys.
 - HTTPS certificate enabled.
 - Writable `storage/` and `bootstrap/cache/`.
-- A working Laravel Session Auth user and Sanctum personal-access-token table.
+- Laravel Session Auth plus Sanctum 4.x (installed by Composer) and the `personal_access_tokens` migration.
 
 Upload `tools/check-server.php` temporarily outside the public directory and run it from cPanel Terminal when available. Delete temporary diagnostic copies after use.
 
@@ -41,7 +41,7 @@ WORKTRACKER_DEVICE_TOKEN_DAYS=90
 WORKTRACKER_ADMIN_TOKEN_DAYS=30
 ```
 
-Also configure the normal `DB_*`, cache and session settings required by the host Laravel application.
+Also configure the normal `DB_*`, cache and session settings required by the WorkTracker Laravel application.
 
 ## Reverse proxy / Cloudflare
 When HTTPS terminates before Laravel, configure Laravel trusted proxies correctly. Do not disable `WORKTRACKER_REQUIRE_HTTPS` merely to hide an incorrect proxy configuration.
@@ -57,5 +57,5 @@ alpha.4.2 does not require a queue worker or Laravel scheduler. The Windows Agen
 - HTTP is redirected/blocked and HTTPS succeeds.
 - `storage/logs/laravel.log` remains writable and `APP_DEBUG=false` prevents stack traces from leaking publicly.
 
-## alpha.6 billing deployment note
+## Billing deployment note
 Run all WorkTracker migrations through `2026_08_12_000600_add_invoice_exclusion_counters.php`. Billing/invoice features still do not require a queue worker or scheduler. Excel export is dependency-free SpreadsheetML. PDF output uses the authenticated print page + browser Save as PDF, so no Dompdf package or server font installation is required.

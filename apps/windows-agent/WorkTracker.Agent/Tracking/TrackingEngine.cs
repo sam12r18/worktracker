@@ -1,3 +1,4 @@
+using System.IO;
 using WorkTracker.Agent.Classification;
 using WorkTracker.Agent.Domain;
 using WorkTracker.Agent.Storage;

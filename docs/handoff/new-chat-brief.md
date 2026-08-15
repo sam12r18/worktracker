@@ -1,6 +1,6 @@
 # New Chat Brief — WorkTracker
 
-Baseline: **WorkTracker 0.1.0-alpha.7**.
+Baseline: **WorkTracker 0.1.0-alpha.7.2**.
 
 Before coding read, in order:
 1. `AGENTS.md`
@@ -12,7 +12,7 @@ Before coding read, in order:
 7. `docs/adr/0010-invoice-snapshot-and-billing-sync.md`
 8. `docs/adr/0011-effective-dated-rate-history.md`
 
-Current repository paths are authoritative in `docs/handoff/current-project-map.md`. Do not assume `apps/api` is a standalone Laravel distribution; it is an integration module for a normal authenticated Laravel/Sanctum host.
+Current repository paths are authoritative in `docs/handoff/current-project-map.md`. `apps/api` is the complete Laravel 12 backend and includes login/session auth plus the direct Sanctum 4.x dependency.
 
 Key invariants:
 - Legitimate overlapping Activities are additive, including same user/device/project/time range.
@@ -22,4 +22,4 @@ Key invariants:
 - Billing uses historical rate/multiplier values effective at Activity time.
 - Final invoices snapshot pricing and are immutable through application services.
 
-Recommended next phase: **alpha.7 historical Activity correction + audit + richer weekly/monthly reporting**. Add central Activity Type/project correction without altering timestamps/duration, then concurrent-lane visualization and export refinement.
+Recommended next phase: continue post-alpha.7.2 stabilization: end-to-end Backend/Agent sync validation, then Windows Manual Timer/Timeline/Sync component extraction and report export refinement.

@@ -2,14 +2,14 @@
 
 Offline-first Windows activity/project tracker with a Laravel backend, additive concurrent time accounting, central reporting and customer billing.
 
-Current source: **0.1.0-alpha.7.1 — History, Audit, Reports & UI Refresh**.
+Current source: **0.1.0-alpha.7.2 — Backend Dependency & Packaging Hotfix**.
 
 ## Non-negotiable time rule
 Legitimate parallel activities are additive. A 20-minute phone call and 20 minutes of coding from 10:00–10:20 may both belong to the same project and equal **40m Effort / 20m Elapsed Coverage**. Sync, reporting and billing must not normalize this.
 
 ## Repository layout
 - `apps/windows-agent/WorkTracker.Agent/` — C#/.NET 10/WPF Agent, SQLite, capture, manual timers, classification and Sync.
-- `apps/api/` — Laravel integration module; not a standalone Laravel distribution.
+- `apps/api/` — complete Laravel 12 backend application for WorkTracker.
 - `docs/` — ADRs, architecture, deployment, testing and handoff.
 - `tools/` — Windows build/run and server/invariant checks.
 
@@ -38,7 +38,7 @@ Requires .NET 10 SDK on Windows. The packaging environment does not perform the 
 ## Laravel integration
 Read `apps/api/README.md`, then `docs/deployment/local-laravel.md` or `docs/deployment/cpanel.md`. For an existing alpha.6 installation use `docs/deployment/upgrade-alpha6-to-alpha7.md`.
 
-The host Laravel application must already provide authentication, User model, Sanctum and normal framework/vendor files. Register `App\Providers\WorkTrackerServiceProvider`; WorkTracker routes are loaded by the provider.
+The backend is a complete Laravel 12 application. Run `composer install`, configure `.env`, run migrations, seed the admin user if required, then serve the application. Sanctum 4.x is a direct dependency and is locked in `composer.lock`.
 
 Production web root must point to Laravel `public/`.
 

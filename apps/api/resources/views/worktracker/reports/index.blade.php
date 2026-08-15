@@ -1,8 +1,87 @@
 @extends('layouts.worktracker',['title'=>'WorkTracker — گزارش‌ها'])
 @section('content')
-@php $fmt=fn($s)=>sprintf('%02d:%02d',intdiv((int)$s,3600),intdiv((int)$s%3600,60)); $rangeSeconds=max(1,$from->diffInSeconds($to)); @endphp
-<x-worktracker.page-header title="گزارش زمانی" subtitle="روزانه، هفتگی، ماهانه یا بازه دلخواه؛ Effort و Coverage مستقل محاسبه می‌شوند."><x-slot:actions><form method="get" class="wt-row"><select name="preset"><option value="day" @selected($preset==='day')>روز</option><option value="week" @selected($preset==='week')>هفته</option><option value="month" @selected($preset==='month')>ماه</option><option value="custom" @selected($preset==='custom')>دلخواه</option></select><input type="date" name="from" value="{{ request('from',$from->toDateString()) }}"><input type="date" name="to" value="{{ request('to',$to->subDay()->toDateString()) }}"><select name="project_id"><option value="">همه پروژه‌ها</option>@foreach($projects as $p)<option value="{{ $p->id }}" @selected($projectId===$p->id)>{{ $p->name }}</option>@endforeach</select><button class="wt-btn-primary">اعمال</button></form></x-slot:actions></x-worktracker.page-header>
-<div class="wt-cards"><x-worktracker.metric label="Effort" :value="$fmt($report['summary']['effort_seconds'])"/><x-worktracker.metric label="Coverage" :value="$fmt($report['summary']['elapsed_coverage_seconds'])"/><x-worktracker.metric label="Concurrent" :value="$fmt($report['summary']['concurrent_effort_seconds'])"/><x-worktracker.metric label="Activity" :value="$report['sessions_count']" :hint="$from->toDateString().' تا '.$to->subSecond()->toDateString()"/></div>
-<div class="wt-grid"><div><x-worktracker.panel title="روند روزانه"><x-worktracker.table><thead><tr><th>تاریخ</th><th>Effort</th><th>Coverage</th><th>Concurrent</th><th>تعداد</th></tr></thead><tbody>@foreach($report['days'] as $d)<tr><td>{{ $d['date'] }}</td><td>{{ $fmt($d['effort_seconds']) }}</td><td>{{ $fmt($d['elapsed_coverage_seconds']) }}</td><td>{{ $fmt($d['concurrent_effort_seconds']) }}</td><td>{{ $d['sessions_count'] }}</td></tr>@endforeach</tbody></x-worktracker.table></x-worktracker.panel></div><div><x-worktracker.panel title="انواع فعالیت">@foreach($report['activity_types'] as $t)<div style="margin-bottom:12px"><div class="wt-row" style="justify-content:space-between"><strong>{{ $t['name'] }}</strong><span>{{ $fmt($t['effort_seconds']) }}</span></div><div class="wt-kpi-bar"><i style="width:{{ min(100,($report['summary']['effort_seconds']?($t['effort_seconds']/$report['summary']['effort_seconds']*100):0)) }}%"></i></div></div>@endforeach</x-worktracker.panel></div></div>
-<x-worktracker.panel title="Timeline بصری هم‌زمانی‌ها"><div class="wt-table-wrap"><div class="wt-timeline"><div class="wt-timeline-axis">@for($h=0;$h<24;$h+=2)<span>{{ sprintf('%02d:00',$h) }}</span>@endfor</div>@forelse($sessions as $s)@php $day=$s->started_at->timezone($timezone)->startOfDay();$start=max(0,$day->diffInSeconds($s->started_at->timezone($timezone),false));$end=min(86400,$day->diffInSeconds($s->ended_at->timezone($timezone),false));$left=100*($start/86400);$width=max(.25,100*(max(1,$end-$start)/86400)); @endphp<div class="wt-timeline-row"><div class="wt-timeline-label">{{ $s->project?->name ?? 'Unknown' }} · {{ $s->activityType?->name ?? $s->source }}</div><div class="wt-timeline-track"><div class="wt-timeline-bar" style="left:{{ $left }}%;width:{{ $width }}%" title="{{ $s->started_at->timezone($timezone)->format('H:i') }}–{{ $s->ended_at->timezone($timezone)->format('H:i') }} · {{ $s->note ?: $s->window_title }}">{{ $s->started_at->timezone($timezone)->format('H:i') }}</div></div></div>@empty<x-worktracker.empty title="Timeline خالی است"/>@endforelse</div></div></x-worktracker.panel>
+    @php $fmt=fn($s)=>sprintf('%02d:%02d',intdiv((int)$s,3600),intdiv((int)$s%3600,60)); $rangeSeconds=max(1,$from->diffInSeconds($to)); @endphp
+    <x-worktracker.page-header title="گزارش زمانی"
+                               subtitle="روزانه، هفتگی، ماهانه یا بازه دلخواه؛ Effort و Coverage مستقل محاسبه می‌شوند.">
+        <x-slot:actions>
+            <form method="get" class="wt-row"><select name="preset">
+                    <option value="day" @selected($preset==='day')>روز</option>
+                    <option value="week" @selected($preset==='week')>هفته</option>
+                    <option value="month" @selected($preset==='month')>ماه</option>
+                    <option value="custom" @selected($preset==='custom')>دلخواه</option>
+                </select><input type="date" name="from" value="{{ request('from',$from->toDateString()) }}"><input type="date"
+                                                                                                                   name="to"
+                                                                                                                   value="{{ request('to',$to->subDay()->toDateString()) }}"><select
+                    name="project_id">
+                    <option value="">همه پروژه‌ها</option>@foreach($projects as $p)
+                        <option value="{{ $p->id }}" @selected($projectId===$p->id)>{{ $p->name }}</option>
+                    @endforeach</select>
+                <button class="wt-btn-primary">اعمال</button>
+            </form>
+        </x-slot:actions>
+    </x-worktracker.page-header>
+    <div class="wt-cards">
+        <x-worktracker.metric label="Effort" :value="$fmt($report['summary']['effort_seconds'])"/>
+        <x-worktracker.metric label="Coverage" :value="$fmt($report['summary']['elapsed_coverage_seconds'])"/>
+        <x-worktracker.metric label="Concurrent" :value="$fmt($report['summary']['concurrent_effort_seconds'])"/>
+        <x-worktracker.metric label="Activity" :value="$report['sessions_count']"
+                              :hint="$from->toDateString().' تا '.$to->subSecond()->toDateString()"/>
+    </div>
+    <div class="wt-grid">
+        <div>
+            <x-worktracker.panel title="روند روزانه">
+                <x-worktracker.table>
+                    <thead>
+                    <tr>
+                        <th>تاریخ</th>
+                        <th>Effort</th>
+                        <th>Coverage</th>
+                        <th>Concurrent</th>
+                        <th>تعداد</th>
+                    </tr>
+                    </thead>
+                    <tbody>@foreach($report['days'] as $d)
+                        <tr>
+                            <td>{{ $d['date'] }}</td>
+                            <td>{{ $fmt($d['effort_seconds']) }}</td>
+                            <td>{{ $fmt($d['elapsed_coverage_seconds']) }}</td>
+                            <td>{{ $fmt($d['concurrent_effort_seconds']) }}</td>
+                            <td>{{ $d['sessions_count'] }}</td>
+                        </tr>
+                    @endforeach</tbody>
+                </x-worktracker.table>
+            </x-worktracker.panel>
+        </div>
+        <div>
+            <x-worktracker.panel title="انواع فعالیت">@foreach($report['activity_types'] as $t)
+                    <div style="margin-bottom:12px">
+                        <div class="wt-row" style="justify-content:space-between">
+                            <strong>{{ $t['name'] }}</strong><span>{{ $fmt($t['effort_seconds']) }}</span></div>
+                        <div class="wt-kpi-bar"><i
+                                style="width:{{ min(100,($report['summary']['effort_seconds']?($t['effort_seconds']/$report['summary']['effort_seconds']*100):0)) }}%"></i>
+                        </div>
+                    </div>
+                @endforeach</x-worktracker.panel>
+        </div>
+    </div>
+    <x-worktracker.panel title="Timeline بصری هم‌زمانی‌ها">
+        <div class="wt-table-wrap">
+            <div class="wt-timeline">
+                <div class="wt-timeline-axis">@for($h=0;$h<24;$h+=2)
+                        <span>{{ sprintf('%02d:00',$h) }}</span>
+                    @endfor</div>@forelse($sessions as $s)
+                    @php $day=$s->started_at->timezone($timezone)->startOfDay();$start=max(0,$day->diffInSeconds($s->started_at->timezone($timezone),false));$end=min(86400,$day->diffInSeconds($s->ended_at->timezone($timezone),false));$left=100*($start/86400);$width=max(.25,100*(max(1,$end-$start)/86400)); @endphp
+                    <div class="wt-timeline-row">
+                        <div class="wt-timeline-label">{{ $s->project?->name ?? 'Unknown' }}
+                            · {{ $s->activityType?->name ?? $s->source }}</div>
+                        <div class="wt-timeline-track">
+                            <div class="wt-timeline-bar" style="left:{{ $left }}%;width:{{ $width }}%"
+                                 title="{{ $s->started_at->timezone($timezone)->format('H:i') }}–{{ $s->ended_at->timezone($timezone)->format('H:i') }} · {{ $s->note ?: $s->window_title }}">{{ $s->started_at->timezone($timezone)->format('H:i') }}</div>
+                        </div>
+                    </div>
+                @empty
+                    <x-worktracker.empty title="Timeline خالی است"/>
+                @endforelse</div>
+        </div>
+    </x-worktracker.panel>
 @endsection

@@ -1,6 +1,6 @@
 # WorkTracker Status
 
-Current release: **0.1.0-alpha.7.1 — History, Audit, Reports & UI Refresh**
+Current release: **0.1.0-alpha.7.2 — Backend Dependency & Packaging Hotfix**
 
 ## Completed source milestones
 - alpha.1: offline foreground capture, idle handling, SQLite timeline, simultaneous manual timers, additive overlap accounting.
@@ -19,7 +19,7 @@ Current release: **0.1.0-alpha.7.1 — History, Audit, Reports & UI Refresh**
 - An Activity already included in a finalized invoice is excluded from future invoice drafts.
 
 ## Validation gap
-Static PHP/XAML/SQLite checks are performed in the packaging environment. A real Windows/.NET 10 build and end-to-end Laravel/Sanctum/MariaDB migration test on the actual local/cPanel target remain required before production use.
+Static PHP/XAML/SQLite checks are performed in the packaging environment. Windows Agent Release build has been validated on Windows/.NET 10. End-to-end Laravel/Sanctum/MariaDB verification on the actual deployment target remains required before production use.
 
 ## Next
 - Real Windows/.NET 10 build validation, then extract Manual Timer / Timeline / Sync sections into UserControls + ViewModels.

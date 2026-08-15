@@ -1,3 +1,4 @@
+using System.IO;
 using Microsoft.Data.Sqlite;
 
 namespace WorkTracker.Agent.Storage;

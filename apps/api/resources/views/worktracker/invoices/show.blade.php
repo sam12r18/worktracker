@@ -1,15 +1,79 @@
 @extends('layouts.worktracker')
 @section('content')
-<x-worktracker.page-header :title="'فاکتور '.($invoice->number ?? 'پیش‌نویس')" :subtitle="$invoice->customer->name.' — '.$invoice->period_start->format('Y-m-d').' تا '.$invoice->period_end->format('Y-m-d')" />
-<div class="wt-nav"><a href="{{ route('worktracker.invoices.index') }}">بازگشت به فاکتورها</a><a href="{{ route('worktracker.billing') }}">قیمت‌گذاری</a></div>
-@if($invoice->untyped_activity_count || $invoice->nonbillable_activity_count)<div class="wt-flash"><b>کنترل صورتحساب:</b> {{ $invoice->untyped_activity_count }} فعالیت بدون نوع و {{ $invoice->nonbillable_activity_count }} فعالیت Non-billable در مبلغ لحاظ نشده‌اند.</div>@endif
-<div class="wt-summary"><div><div class="wt-muted">جمع فعالیت‌ها</div><b class="wt-money">{{ number_format($invoice->subtotal_minor) }}</b></div><div><div class="wt-muted">تعدیل</div><b class="wt-money">{{ number_format($invoice->adjustment_minor) }}</b></div><div><div class="wt-muted">مالیات/افزوده</div><b class="wt-money">{{ number_format($invoice->tax_minor) }}</b></div><div><div class="wt-muted">مبلغ نهایی</div><b class="wt-money">{{ number_format($invoice->total_minor) }} {{ $invoice->currency }}</b></div></div>
-<x-worktracker.panel title="عملیات فاکتور">
-<div class="wt-actions"><a class="wt-btn" href="{{ route('worktracker.invoices.print',$invoice) }}" target="_blank">چاپ / ذخیره PDF</a><a class="wt-btn" href="{{ route('worktracker.invoices.excel',$invoice) }}">Excel</a>
-@if($invoice->status==='draft')<form method="post" action="{{ route('worktracker.invoices.finalize',$invoice) }}" onsubmit="return confirm('پس از نهایی‌سازی Snapshot قیمت‌ها ثابت می‌شود. ادامه می‌دهید؟')">@csrf<button>نهایی‌سازی</button></form>@endif</div>
-@if($invoice->status==='draft')<form method="post" action="{{ route('worktracker.invoices.update',$invoice) }}" class="wt-form wt-form-grid" style="margin-top:12px">@csrf<label>تعدیل (+/-)<input type="number" name="adjustment_minor" value="{{ $invoice->adjustment_minor }}"></label><label>مالیات/افزوده<input type="number" min="0" name="tax_minor" value="{{ $invoice->tax_minor }}"></label><label style="grid-column:span 2">یادداشت<input name="notes" value="{{ $invoice->notes }}"></label><button>ذخیره</button></form>@endif
-</x-worktracker.panel>
-<x-worktracker.panel title="ریز فعالیت‌ها"><x-worktracker.table><thead><tr><th>زمان</th><th>پروژه</th><th>نوع فعالیت</th><th>شرح</th><th>Effort</th><th>نرخ پایه</th><th>ضریب مشتری</th><th>ضریب پروژه</th><th>نرخ مؤثر</th><th>مبلغ</th></tr></thead><tbody>
-@foreach($invoice->items as $i)<tr><td>{{ $i->started_at->format('Y-m-d H:i') }}</td><td>{{ $i->project?->name }}</td><td>{{ $i->activityType?->name }}</td><td>{{ $i->description }}</td><td>{{ gmdate('H:i:s',$i->billable_seconds) }}</td><td class="wt-money">{{ number_format($i->base_rate_minor) }}</td><td>{{ $i->customer_multiplier }}</td><td>{{ $i->project_multiplier }}</td><td class="wt-money">{{ number_format($i->effective_rate_minor) }}</td><td class="wt-money">{{ number_format($i->amount_minor) }}</td></tr>@endforeach
-</tbody></x-worktracker.table></x-worktracker.panel>
+    <x-worktracker.page-header :title="'فاکتور '.($invoice->number ?? 'پیش‌نویس')"
+                               :subtitle="$invoice->customer->name.' — '.$invoice->period_start->format('Y-m-d').' تا '.$invoice->period_end->format('Y-m-d')"/>
+    <div class="wt-nav"><a href="{{ route('worktracker.invoices.index') }}">بازگشت به فاکتورها</a><a
+            href="{{ route('worktracker.billing') }}">قیمت‌گذاری</a></div>
+    @if($invoice->untyped_activity_count || $invoice->nonbillable_activity_count)
+        <div class="wt-flash"><b>کنترل صورتحساب:</b> {{ $invoice->untyped_activity_count }} فعالیت بدون نوع
+            و {{ $invoice->nonbillable_activity_count }} فعالیت Non-billable در مبلغ لحاظ نشده‌اند.
+        </div>
+    @endif
+    <div class="wt-summary">
+        <div>
+            <div class="wt-muted">جمع فعالیت‌ها</div>
+            <b class="wt-money">{{ number_format($invoice->subtotal_minor) }}</b></div>
+        <div>
+            <div class="wt-muted">تعدیل</div>
+            <b class="wt-money">{{ number_format($invoice->adjustment_minor) }}</b></div>
+        <div>
+            <div class="wt-muted">مالیات/افزوده</div>
+            <b class="wt-money">{{ number_format($invoice->tax_minor) }}</b></div>
+        <div>
+            <div class="wt-muted">مبلغ نهایی</div>
+            <b class="wt-money">{{ number_format($invoice->total_minor) }} {{ $invoice->currency }}</b></div>
+    </div>
+    <x-worktracker.panel title="عملیات فاکتور">
+        <div class="wt-actions"><a class="wt-btn" href="{{ route('worktracker.invoices.print',$invoice) }}" target="_blank">چاپ /
+                ذخیره PDF</a><a class="wt-btn" href="{{ route('worktracker.invoices.excel',$invoice) }}">Excel</a>
+            @if($invoice->status==='draft')
+                <form method="post" action="{{ route('worktracker.invoices.finalize',$invoice) }}"
+                      onsubmit="return confirm('پس از نهایی‌سازی Snapshot قیمت‌ها ثابت می‌شود. ادامه می‌دهید؟')">@csrf
+                    <button>نهایی‌سازی</button>
+                </form>
+            @endif</div>
+        @if($invoice->status==='draft')
+            <form method="post" action="{{ route('worktracker.invoices.update',$invoice) }}" class="wt-form wt-form-grid"
+                  style="margin-top:12px">@csrf<label>تعدیل (+/-)<input type="number" name="adjustment_minor"
+                                                                        value="{{ $invoice->adjustment_minor }}"></label><label>مالیات/افزوده<input
+                        type="number" min="0" name="tax_minor" value="{{ $invoice->tax_minor }}"></label><label
+                    style="grid-column:span 2">یادداشت<input name="notes" value="{{ $invoice->notes }}"></label>
+                <button>ذخیره</button>
+            </form>
+        @endif
+    </x-worktracker.panel>
+    <x-worktracker.panel title="ریز فعالیت‌ها">
+        <x-worktracker.table>
+            <thead>
+            <tr>
+                <th>زمان</th>
+                <th>پروژه</th>
+                <th>نوع فعالیت</th>
+                <th>شرح</th>
+                <th>Effort</th>
+                <th>نرخ پایه</th>
+                <th>ضریب مشتری</th>
+                <th>ضریب پروژه</th>
+                <th>نرخ مؤثر</th>
+                <th>مبلغ</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach($invoice->items as $i)
+                <tr>
+                    <td>{{ $i->started_at->format('Y-m-d H:i') }}</td>
+                    <td>{{ $i->project?->name }}</td>
+                    <td>{{ $i->activityType?->name }}</td>
+                    <td>{{ $i->description }}</td>
+                    <td>{{ gmdate('H:i:s',$i->billable_seconds) }}</td>
+                    <td class="wt-money">{{ number_format($i->base_rate_minor) }}</td>
+                    <td>{{ $i->customer_multiplier }}</td>
+                    <td>{{ $i->project_multiplier }}</td>
+                    <td class="wt-money">{{ number_format($i->effective_rate_minor) }}</td>
+                    <td class="wt-money">{{ number_format($i->amount_minor) }}</td>
+                </tr>
+            @endforeach
+            </tbody>
+        </x-worktracker.table>
+    </x-worktracker.panel>
 @endsection

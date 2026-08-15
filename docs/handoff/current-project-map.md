@@ -1,4 +1,4 @@
-# Current Project Map — WorkTracker 0.1.0-alpha.7
+# Current Project Map — WorkTracker 0.1.0-alpha.7.2
 
 Verified against the packaged source tree on 2026-08-12.
 
@@ -9,7 +9,7 @@ Verified against the packaged source tree on 2026-08-12.
 - `tools/` — build, run, server preflight and invariant checks.
 - `docs/` — ADRs, architecture, deployment, testing, roadmap, handoff.
 - `apps/windows-agent/WorkTracker.Agent/` — Windows WPF/.NET 10 agent.
-- `apps/api/` — Laravel integration module (not a standalone Laravel framework distribution).
+- `apps/api/` — complete Laravel 12 backend application.
 
 ## Windows Agent
 Path: `apps/windows-agent/WorkTracker.Agent/`
@@ -25,10 +25,10 @@ Important areas:
 - `Controls/TodaySummaryControl.xaml(.cs)` extracted summary component.
 - `MainWindow.xaml(.cs)` current shell; Manual Timer, Timeline and Sync are the next extraction targets after a real .NET build.
 
-## Laravel integration module
+## Laravel backend application
 Path: `apps/api/`
 
-It must be merged/copied into a normal Laravel application that already has User authentication and Laravel Sanctum. `WorkTrackerServiceProvider` owns WorkTracker route loading.
+`apps/api/` is directly runnable as the WorkTracker Laravel 12 backend. User authentication is included, Laravel Sanctum 4.x is a direct Composer dependency, and `WorkTrackerServiceProvider` owns WorkTracker route loading.
 
 Important areas:
 - `app/Http/Controllers/Api/V1/SyncController.php` device sync.
@@ -62,7 +62,7 @@ Token-only API:
 - `/api/v1/sync-conflicts/*`
 
 ## Deployment truth
-The source package is an integration repository, not a one-command Laravel application. On local/cPanel the host Laravel app must supply framework/vendor files, authentication, Sanctum, database configuration and a web root pointed to Laravel `public/`.
+The source package contains a complete Laravel 12 backend under `apps/api/`. On local/cPanel run Composer in that directory, configure the database, run migrations, and point the web root to `apps/api/public/`.
 
 Do not relocate WorkTracker code into arbitrary paths without updating this map, deployment docs, `AGENTS.md`, and the ServiceProvider.
 

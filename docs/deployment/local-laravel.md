@@ -1,26 +1,19 @@
-# Local Laravel deployment — alpha.6 baseline
+# Local Laravel deployment — alpha.7.2 baseline
 
 ## Baseline
-WorkTracker API is an integration module for a normal Laravel host. For a dedicated new host, use Laravel 13 + PHP 8.3+ and MySQL/MariaDB. The Windows Agent does not require the Laravel host to be on the same machine.
+`apps/api/` در بسته alpha.7.2 یک Laravel 12 کامل است. حداقل PHP موردنیاز 8.2 است و MySQL/MariaDB پشتیبانی می‌شود. Windows Agent لازم نیست روی همان سیستم Backend اجرا شود.
+
+Laravel Sanctum 4.x وابستگی مستقیم پروژه است و با `composer install` نصب می‌شود. migration جدول `personal_access_tokens` نیز داخل خود پروژه قرار دارد؛ بنابراین برای این بسته نباید `php artisan install:api` اجرا شود.
 
 ## Host preparation
-1. Create a normal Laravel application and configure `.env` database/session values.
-2. Install/configure Laravel Sanctum and ensure the host `User` model uses `Laravel\Sanctum\HasApiTokens`.
-3. Ensure at least one authenticated User exists for the WorkTracker dashboard.
-4. Copy `apps/api/app`, `apps/api/config/worktracker.php`, migrations, views and `routes/worktracker*.php` into the host application.
-5. Copy `App\Providers\WorkTrackerServiceProvider` and register it in `bootstrap/providers.php`:
-
-```php
-return [
-    App\Providers\AppServiceProvider::class,
-    App\Providers\WorkTrackerServiceProvider::class,
-];
-```
-
-6. Add WorkTracker env keys from `.env.worktracker.example`.
-7. Run migrations.
-8. Clear cached configuration/routes after deployment.
-9. Verify `/worktracker` requires login and `/api/v1/*` rejects requests without a scoped bearer token.
+1. وارد `apps/api/` شوید و `.env` را تنظیم کنید.
+2. `composer install` را اجرا کنید.
+3. در نصب تازه، `php artisan key:generate` را اجرا کنید.
+4. دیتابیس را ایجاد و مشخصات آن را در `.env` ثبت کنید.
+5. `php artisan migrate` را اجرا کنید؛ این مرحله جدول `personal_access_tokens` را نیز می‌سازد.
+6. مقادیر `WORKTRACKER_ADMIN_*` را تنظیم و در صورت نیاز `php artisan db:seed` را اجرا کنید.
+7. در پایان cache/config/routes را پاک کنید و Health را بررسی کنید.
+8. در production، `WORKTRACKER_REQUIRE_HTTPS=true` و `APP_DEBUG=false` باشد.
 
 ## Commands
 ```bash

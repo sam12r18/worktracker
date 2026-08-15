@@ -6,8 +6,8 @@ $requiredExtensions = ['ctype','curl','dom','fileinfo','filter','hash','mbstring
 $failures = [];
 $warnings = [];
 
-if (version_compare(PHP_VERSION, '8.3.0', '<')) {
-    $failures[] = 'PHP 8.3+ is required for the Laravel 13 deployment baseline. Current: '.PHP_VERSION;
+if (version_compare(PHP_VERSION, '8.2.0', '<')) {
+    $failures[] = 'PHP 8.2+ is required for the WorkTracker Laravel 12 baseline. Current: '.PHP_VERSION;
 }
 
 foreach ($requiredExtensions as $extension) {

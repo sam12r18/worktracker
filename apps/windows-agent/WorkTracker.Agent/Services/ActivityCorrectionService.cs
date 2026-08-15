@@ -5,7 +5,7 @@ using WorkTracker.Agent.Tracking;
 
 namespace WorkTracker.Agent.Services;
 
-public sealed class ActivityCorrectionService(ActivitySessionRepository activities, ProjectRepository projects, ProjectClassificationService classifier)
+public sealed class ActivityCorrectionService(ActivitySessionRepository activities, ProjectClassificationService classifier)
 {
     public async Task<ActivitySession?> AssignAsync(ActivitySession session, string projectId, bool learnWindowTitle, CancellationToken ct = default)
     {

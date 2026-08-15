@@ -1,3 +1,5 @@
+using MessageBox = System.Windows.MessageBox;
+using Clipboard = System.Windows.Clipboard;
 using System.ComponentModel;
 using System.Windows;
 using System.Windows.Threading;
