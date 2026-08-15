@@ -55,7 +55,29 @@ public sealed class ProjectRepository(LocalDatabase database)
         await using var connection = database.OpenConnection(); await using var tx = await connection.BeginTransactionAsync(cancellationToken); await using var cmd = connection.CreateCommand(); cmd.Transaction=(SqliteTransaction)tx;
         cmd.CommandText = "INSERT INTO project_rules(id,project_id,rule_type,operator,pattern,weight,priority,is_enabled,updated_at) VALUES($id,$project,$type,$operator,$pattern,$weight,$priority,1,$updated)";
         cmd.Parameters.AddWithValue("$id",rule.Id); cmd.Parameters.AddWithValue("$project",rule.ProjectId); cmd.Parameters.AddWithValue("$type",rule.Type.ToString()); cmd.Parameters.AddWithValue("$operator",rule.Operator); cmd.Parameters.AddWithValue("$pattern",rule.Pattern); cmd.Parameters.AddWithValue("$weight",rule.Weight); cmd.Parameters.AddWithValue("$priority",rule.Priority); cmd.Parameters.AddWithValue("$updated",DateTimeOffset.UtcNow.ToString("O")); await cmd.ExecuteNonQueryAsync(cancellationToken);
-        await InsertOutboxAsync(connection,(SqliteTransaction)tx,"project_rule",rule.Id,new { id=rule.Id, project_id=rule.ProjectId, rule_type=rule.Type.ToString(), operator=rule.Operator, pattern=rule.Pattern, weight=rule.Weight, priority=rule.Priority, is_enabled=true, version=1 },cancellationToken); await tx.CommitAsync(cancellationToken); return rule;
+        var payload = new Dictionary<string, object?>
+        {
+            ["id"] = rule.Id,
+            ["project_id"] = rule.ProjectId,
+            ["rule_type"] = rule.Type.ToString(),
+            ["operator"] = rule.Operator,
+            ["pattern"] = rule.Pattern,
+            ["weight"] = rule.Weight,
+            ["priority"] = rule.Priority,
+            ["is_enabled"] = true,
+            ["version"] = 1,
+        };
+
+        await InsertOutboxAsync(
+            connection,
+            (SqliteTransaction)tx,
+            "project_rule",
+            rule.Id,
+            payload,
+            cancellationToken);
+
+        await tx.CommitAsync(cancellationToken);
+        return rule;
     }
 
     private static async Task InsertOutboxAsync(SqliteConnection connection, SqliteTransaction tx, string entity, string id, object payload, CancellationToken ct)
