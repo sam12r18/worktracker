@@ -32,8 +32,11 @@ Activity edit/audit trail, Activity Type correction, daily/weekly/monthly UX, fi
 ## 0.2 — Browser/IDE enrichment
 Chrome/Edge extension contract, privacy allow/deny rules, active tab/domain metadata, PhpStorm/VS Code/Git adapters and explicit background-job sources.
 
+## alpha.7.2 — Admin master data + Task web foundation
+Project/Customer master-data UI, Project Rule management, contextual help, Task CRUD web foundation and pricing-operations polish.
+
 ## 0.3+
-Task planning, team roles, invoice payment lifecycle, optional AI daily narrative, installer/update channel and deeper analytics.
+Team roles, richer Task planning/assignees, invoice payment lifecycle, optional AI daily narrative, installer/update channel and deeper analytics.
 
 ## 1.0 target
 Stable Windows Agent + Laravel backend with reliable offline-first sync, trustworthy additive time accounting, multi-device reporting, billing/invoicing, privacy controls, production deployment documentation and update path.

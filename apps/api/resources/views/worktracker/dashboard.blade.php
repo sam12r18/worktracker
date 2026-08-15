@@ -1,150 +1,19 @@
 @extends('layouts.worktracker',['title'=>'WorkTracker — داشبورد'])
 @section('content')
-    @php $fmt=fn($s)=>sprintf('%02d:%02d',intdiv((int)$s,3600),intdiv((int)$s%3600,60)); @endphp
-    <x-worktracker.page-header title="داشبورد عملیات" subtitle="نمای زنده زمان، پروژه‌ها، Sync و سلامت داده‌ها.">
-        <x-slot:actions>
-            <form method="get" class="wt-row"><input type="date" name="date" value="{{ $date }}"><input type="hidden"
-                                                                                                        name="timezone"
-                                                                                                        value="{{ $timezone }}">
-                <button class="wt-btn-primary">نمایش</button>
-            </form>
-            <a class="wt-btn" href="{{ route('worktracker.activities.index',['date'=>$date]) }}">ویرایش فعالیت‌ها</a>
-        </x-slot:actions>
-    </x-worktracker.page-header>
-    <div class="wt-cards">
-        <x-worktracker.metric label="Effort" :value="$fmt($report['summary']['effort_seconds'])" hint="جمع مستقل همه فعالیت‌ها"/>
-        <x-worktracker.metric label="Coverage" :value="$fmt($report['summary']['elapsed_coverage_seconds'])"
-                              hint="زمان تقویمی پوشش‌داده‌شده"/>
-        <x-worktracker.metric label="Concurrent" :value="$fmt($report['summary']['concurrent_effort_seconds'])"
-                              hint="Effort افزوده ناشی از هم‌زمانی"/>
-        <x-worktracker.metric label="Unknown" :value="$fmt($report['unknown']['effort_seconds'])"
-                              :hint="$report['unknown']['sessions_count'].' فعالیت نیازمند بررسی'"/>
-    </div>
-    <div class="wt-grid">
+@php $fmt=fn($s)=>sprintf('%02d:%02d',intdiv((int)$s,3600),intdiv((int)$s%3600,60)); @endphp
+<x-worktracker.page-header title="داشبورد عملیات" subtitle="نمای زنده زمان، پروژه‌ها، Sync و سلامت داده‌ها."><x-slot:actions><form method="get" class="wt-row"><input type="date" name="date" value="{{ $date }}"><input type="hidden" name="timezone" value="{{ $timezone }}"><button class="wt-btn-primary">نمایش</button></form><a class="wt-btn" href="{{ route('worktracker.activities.index',['date'=>$date]) }}">ویرایش فعالیت‌ها</a></x-slot:actions></x-worktracker.page-header>
+<div class="wt-cards"><x-worktracker.metric label="Effort" :value="$fmt($report['summary']['effort_seconds'])" hint="جمع مستقل همه فعالیت‌ها"/><x-worktracker.metric label="Coverage" :value="$fmt($report['summary']['elapsed_coverage_seconds'])" hint="زمان تقویمی پوشش‌داده‌شده"/><x-worktracker.metric label="Concurrent" :value="$fmt($report['summary']['concurrent_effort_seconds'])" hint="Effort افزوده ناشی از هم‌زمانی"/><x-worktracker.metric label="Unknown" :value="$fmt($report['unknown']['effort_seconds'])" :hint="$report['unknown']['sessions_count'].' فعالیت نیازمند بررسی'"/></div>
+<div class="wt-grid"><div><x-worktracker.panel title="پروژه‌های امروز"><x-worktracker.table><thead><tr><th>پروژه</th><th>Effort</th><th>Coverage</th><th>Concurrent</th><th>Activity</th></tr></thead><tbody>@forelse($report['projects'] as $p)<tr><td><strong>{{ $p['name'] }}</strong><div class="wt-muted">{{ $p['code'] }}</div></td><td>{{ $fmt($p['effort_seconds']) }}</td><td>{{ $fmt($p['elapsed_coverage_seconds']) }}</td><td>{{ $fmt($p['concurrent_effort_seconds']) }}</td><td>{{ $p['sessions_count'] }}</td></tr>@empty<tr><td colspan="5"><x-worktracker.empty title="امروز فعالیتی ثبت نشده"/></td></tr>@endforelse</tbody></x-worktracker.table></x-worktracker.panel>
+<x-worktracker.panel title="نوع فعالیت">@foreach($report['activity_types'] as $t)<div style="margin-bottom:11px"><div class="wt-row" style="justify-content:space-between"><span>{{ $t['name'] }}</span><strong>{{ $fmt($t['effort_seconds']) }}</strong></div><div class="wt-kpi-bar"><i style="width:{{ min(100,($report['summary']['effort_seconds']?($t['effort_seconds']/$report['summary']['effort_seconds']*100):0)) }}%"></i></div></div>@endforeach</x-worktracker.panel></div>
+<div><x-worktracker.panel title="سلامت Sync">@forelse($devices as $d)<form method="post" action="{{ route('worktracker.devices.update',$d) }}" class="wt-form-card" style="margin-bottom:9px">@csrf<div class="wt-row"><strong>{{ $d->name }}</strong>@if($d->revoked_at)<x-worktracker.badge tone="danger">لغو شده</x-worktracker.badge>@elseif($d->last_sync_error)<x-worktracker.badge tone="warning">خطا</x-worktracker.badge>@else<x-worktracker.badge tone="success">فعال</x-worktracker.badge>@endif</div><div class="wt-muted">{{ $d->operator_label ?: 'بدون اپراتور' }} · آخرین Sync {{ $d->last_sync_succeeded_at ?: '—' }}</div><details><summary>مدیریت</summary><div class="wt-stack" style="margin-top:8px"><input name="name" value="{{ $d->name }}"><input name="operator_label" value="{{ $d->operator_label }}" placeholder="نام اپراتور"><button>ذخیره</button>@if($d->revoked_at)<button formaction="{{ route('worktracker.devices.restore',$d) }}">فعال‌سازی</button>@else<button formaction="{{ route('worktracker.devices.revoke',$d) }}" class="wt-danger">لغو Sync</button>@endif</div></details></form>@empty<x-worktracker.empty title="هنوز دستگاهی ثبت نشده"/>@endforelse</x-worktracker.panel>
+<x-worktracker.panel :title="'تعارض‌های باز ('.$openConflicts->count().')'">@forelse($openConflicts as $c)<div class="wt-form-card" style="margin-bottom:7px"><strong>{{ $c->entity_type }}</strong><div class="wt-muted wt-break">{{ $c->entity_id }}</div></div>@empty<x-worktracker.empty title="تعارض بازی وجود ندارد"/>@endforelse</x-worktracker.panel></div></div>
+<x-worktracker.panel title="API و Access Token">
+    <div class="wt-row" style="justify-content:space-between">
         <div>
-            <x-worktracker.panel title="پروژه‌های امروز">
-                <x-worktracker.table>
-                    <thead>
-                    <tr>
-                        <th>پروژه</th>
-                        <th>Effort</th>
-                        <th>Coverage</th>
-                        <th>Concurrent</th>
-                        <th>Activity</th>
-                    </tr>
-                    </thead>
-                    <tbody>@forelse($report['projects'] as $p)
-                        <tr>
-                            <td><strong>{{ $p['name'] }}</strong>
-                                <div class="wt-muted">{{ $p['code'] }}</div>
-                            </td>
-                            <td>{{ $fmt($p['effort_seconds']) }}</td>
-                            <td>{{ $fmt($p['elapsed_coverage_seconds']) }}</td>
-                            <td>{{ $fmt($p['concurrent_effort_seconds']) }}</td>
-                            <td>{{ $p['sessions_count'] }}</td>
-                        </tr>
-                    @empty
-                        <tr>
-                            <td colspan="5">
-                                <x-worktracker.empty title="امروز فعالیتی ثبت نشده"/>
-                            </td>
-                        </tr>
-                    @endforelse</tbody>
-                </x-worktracker.table>
-            </x-worktracker.panel>
-            <x-worktracker.panel title="نوع فعالیت">@foreach($report['activity_types'] as $t)
-                    <div style="margin-bottom:11px">
-                        <div class="wt-row" style="justify-content:space-between">
-                            <span>{{ $t['name'] }}</span><strong>{{ $fmt($t['effort_seconds']) }}</strong></div>
-                        <div class="wt-kpi-bar"><i
-                                style="width:{{ min(100,($report['summary']['effort_seconds']?($t['effort_seconds']/$report['summary']['effort_seconds']*100):0)) }}%"></i>
-                        </div>
-                    </div>
-                @endforeach</x-worktracker.panel>
+            <strong>{{ $accessTokens->count() }} Token فعال</strong>
+            <div class="wt-muted">Device Token برای Windows Agent و Admin Token برای API مدیریتی.</div>
         </div>
-        <div>
-            <x-worktracker.panel title="سلامت Sync">@forelse($devices as $d)
-                    <form method="post" action="{{ route('worktracker.devices.update',$d) }}" class="wt-form-card"
-                          style="margin-bottom:9px">@csrf
-                        <div class="wt-row"><strong>{{ $d->name }}</strong>@if($d->revoked_at)
-                                <x-worktracker.badge tone="danger">لغو شده</x-worktracker.badge>
-                            @elseif($d->last_sync_error)
-                                <x-worktracker.badge tone="warning">خطا</x-worktracker.badge>
-                            @else
-                                <x-worktracker.badge tone="success">فعال</x-worktracker.badge>
-                            @endif</div>
-                        <div class="wt-muted">{{ $d->operator_label ?: 'بدون اپراتور' }} · آخرین
-                            Sync {{ $d->last_sync_succeeded_at ?: '—' }}</div>
-                        <details>
-                            <summary>مدیریت</summary>
-                            <div class="wt-stack" style="margin-top:8px"><input name="name" value="{{ $d->name }}"><input
-                                    name="operator_label" value="{{ $d->operator_label }}" placeholder="نام اپراتور">
-                                <button>ذخیره</button>@if($d->revoked_at)
-                                    <button formaction="{{ route('worktracker.devices.restore',$d) }}">فعال‌سازی</button>
-                                @else
-                                    <button formaction="{{ route('worktracker.devices.revoke',$d) }}" class="wt-danger">لغو Sync
-                                    </button>
-                                @endif</div>
-                        </details>
-                    </form>
-                @empty
-                    <x-worktracker.empty title="هنوز دستگاهی ثبت نشده"/>
-                @endforelse
-            </x-worktracker.panel>
-            <x-worktracker.panel :title="'تعارض‌های باز ('.$openConflicts->count().')'">@forelse($openConflicts as $c)
-                    <div class="wt-form-card" style="margin-bottom:7px"><strong>{{ $c->entity_type }}</strong>
-                        <div class="wt-muted wt-break">{{ $c->entity_id }}</div>
-                    </div>
-                @empty
-                    <x-worktracker.empty title="تعارض بازی وجود ندارد"/>
-                @endforelse
-            </x-worktracker.panel>
-        </div>
+        <a class="wt-btn-primary wt-btn" href="{{ route('worktracker.tokens.index') }}">مدیریت Tokenها</a>
     </div>
-    <x-worktracker.panel title="Access Tokenها">
-        <details>
-            <summary>مدیریت Tokenهای API و Windows Agent</summary>
-            <div style="margin-top:12px">
-                @if(session('new_worktracker_token'))
-                    <div class="wt-flash wt-ltr wt-break"><strong>Token جدید — همین حالا کپی
-                            کن:</strong><br><code>{{ session('new_worktracker_token') }}</code></div>
-                @endif
-                <form method="post" action="{{ route('worktracker.tokens.store') }}" class="wt-row">@csrf<select name="kind"
-                                                                                                                 required>
-                        <option value="device">Windows Device</option>
-                        <option value="admin">Admin API</option>
-                    </select><input class="wt-field-grow" name="label" required maxlength="80" placeholder="نام توکن"><input
-                        class="wt-field-grow wt-ltr" name="device_id" placeholder="Device UUID"><input type="number"
-                                                                                                       name="expires_in_days"
-                                                                                                       min="1" max="365"
-                                                                                                       placeholder="روز">
-                    <button>ساخت Token</button>
-                </form>
-                <x-worktracker.table>
-                    <thead>
-                    <tr>
-                        <th>نام</th>
-                        <th>Ability</th>
-                        <th>آخرین استفاده</th>
-                        <th></th>
-                    </tr>
-                    </thead>
-                    <tbody>
-                    @foreach($accessTokens as $token)
-                        <tr>
-                            <td>{{ $token->name }}</td>
-                            <td class="wt-break">{{ implode(', ',$token->abilities??[]) }}</td>
-                            <td>{{ $token->last_used_at ?: '—' }}</td>
-                            <td>
-                                <form method="post"
-                                      action="{{ route('worktracker.tokens.destroy',$token->id) }}">@csrf @method('DELETE')
-                                    <button class="wt-danger">Revoke</button>
-                                </form>
-                            </td>
-                        </tr>
-                    @endforeach</tbody>
-                </x-worktracker.table>
-            </div>
-        </details>
-    </x-worktracker.panel>
+</x-worktracker.panel>
 @endsection

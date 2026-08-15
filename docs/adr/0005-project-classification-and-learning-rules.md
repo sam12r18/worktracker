@@ -15,3 +15,7 @@ Foreground activities are classified locally from deterministic weighted rules. 
 
 ## IDs
 Projects and project rules use client-generated UUIDs so they can be created offline and synchronized from any Windows agent.
+
+## Rule operators (alpha.7.2)
+
+The Windows resolver now executes the server-side `operator` field (`contains`, `equals`, `starts_with`, `ends_with`, `regex`). Regex evaluation is case-insensitive and time-bounded; invalid or timed-out regex rules are treated as non-matches rather than crashing tracking. Existing local databases receive an `operator` column defaulted to `contains`.

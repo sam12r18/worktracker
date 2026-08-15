@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using WorkTracker.Agent.Tracking;
 
 namespace WorkTracker.Agent.Classification;
@@ -18,7 +19,7 @@ public sealed class ProjectResolver
             if (!candidates.TryGetValue(rule.ProjectId, out var current)) current = new Candidate();
             current.Score += rule.Weight;
             current.HighestPriority = Math.Max(current.HighestPriority, rule.Priority);
-            current.Reasons.Add($"{rule.Type}:{rule.Pattern}");
+            current.Reasons.Add($"{rule.Type}:{rule.Operator}:{rule.Pattern}");
             candidates[rule.ProjectId] = current;
         }
 
@@ -35,24 +36,53 @@ public sealed class ProjectResolver
             var runnerUp = ranked[1];
             if (runnerUp.Value.HighestPriority == winner.Value.HighestPriority &&
                 winner.Value.Score - runnerUp.Value.Score < MinimumWinningMargin)
-                return null; // ambiguous evidence is safer in Unknown Inbox than a false project attribution.
+                return null;
         }
 
         var confidence = Math.Min(1.0, winner.Value.Score / 100.0);
         return new ProjectResolution(winner.Key, winner.Value.Score, confidence, winner.Value.Reasons);
     }
 
-    private static bool Matches(ForegroundSnapshot s, ProjectRule r)
+    private static bool Matches(ForegroundSnapshot snapshot, ProjectRule rule)
     {
-        static bool Has(string? value, string pattern) => value?.Contains(pattern, StringComparison.OrdinalIgnoreCase) == true;
-        return r.Type switch
+        return rule.Type switch
         {
-            ProjectRuleType.Path or ProjectRuleType.ExecutablePath => Has(s.ExecutablePath, r.Pattern),
-            ProjectRuleType.WindowTitle => Has(s.WindowTitle, r.Pattern),
-            ProjectRuleType.ProcessName => Has(s.ProcessName, r.Pattern),
-            ProjectRuleType.Keyword => Has(s.WindowTitle, r.Pattern) || Has(s.ExecutablePath, r.Pattern),
+            ProjectRuleType.Path or ProjectRuleType.ExecutablePath => MatchValue(snapshot.ExecutablePath, rule),
+            ProjectRuleType.WindowTitle => MatchValue(snapshot.WindowTitle, rule),
+            ProjectRuleType.ProcessName => MatchValue(snapshot.ProcessName, rule),
+            ProjectRuleType.Keyword => MatchValue(snapshot.WindowTitle, rule) || MatchValue(snapshot.ExecutablePath, rule),
             _ => false
         };
+    }
+
+    private static bool MatchValue(string? value, ProjectRule rule)
+    {
+        if (string.IsNullOrWhiteSpace(value) || string.IsNullOrWhiteSpace(rule.Pattern)) return false;
+
+        return (rule.Operator ?? "contains").Trim().ToLowerInvariant() switch
+        {
+            "equals" => string.Equals(value, rule.Pattern, StringComparison.OrdinalIgnoreCase),
+            "starts_with" => value.StartsWith(rule.Pattern, StringComparison.OrdinalIgnoreCase),
+            "ends_with" => value.EndsWith(rule.Pattern, StringComparison.OrdinalIgnoreCase),
+            "regex" => SafeRegexIsMatch(value, rule.Pattern),
+            _ => value.Contains(rule.Pattern, StringComparison.OrdinalIgnoreCase),
+        };
+    }
+
+    private static bool SafeRegexIsMatch(string value, string pattern)
+    {
+        try
+        {
+            return Regex.IsMatch(value, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(150));
+        }
+        catch (ArgumentException)
+        {
+            return false;
+        }
+        catch (RegexMatchTimeoutException)
+        {
+            return false;
+        }
     }
 
     private sealed class Candidate

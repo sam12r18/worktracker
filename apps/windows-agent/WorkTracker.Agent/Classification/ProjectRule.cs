@@ -4,6 +4,7 @@ public sealed record ProjectRule(
     string Id,
     string ProjectId,
     ProjectRuleType Type,
+    string Operator,
     string Pattern,
     int Weight,
     int Priority,

@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS project_rules (
     id TEXT PRIMARY KEY,
     project_id TEXT NOT NULL,
     rule_type TEXT NOT NULL,
+    operator TEXT NOT NULL DEFAULT 'contains',
     pattern TEXT NOT NULL,
     weight INTEGER NOT NULL,
     priority INTEGER NOT NULL DEFAULT 0,

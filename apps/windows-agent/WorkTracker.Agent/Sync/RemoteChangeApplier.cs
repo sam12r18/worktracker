@@ -69,13 +69,13 @@ public sealed class RemoteChangeApplier(LocalDatabase database)
     {
         var p=change.Payload;var projectId=GetString(p,"project_id");if(string.IsNullOrWhiteSpace(projectId))return;
         await using var cmd=c.CreateCommand();cmd.Transaction=tx;cmd.CommandText="""
-            INSERT INTO project_rules(id,project_id,rule_type,pattern,weight,priority,is_enabled,version,sync_state,updated_at)
-            VALUES($id,$project,$type,$pattern,$weight,$priority,$enabled,$version,'synced',$updated)
-            ON CONFLICT(id) DO UPDATE SET project_id=excluded.project_id,rule_type=excluded.rule_type,pattern=excluded.pattern,
+            INSERT INTO project_rules(id,project_id,rule_type,operator,pattern,weight,priority,is_enabled,version,sync_state,updated_at)
+            VALUES($id,$project,$type,$operator,$pattern,$weight,$priority,$enabled,$version,'synced',$updated)
+            ON CONFLICT(id) DO UPDATE SET project_id=excluded.project_id,rule_type=excluded.rule_type,operator=excluded.operator,pattern=excluded.pattern,
             weight=excluded.weight,priority=excluded.priority,is_enabled=excluded.is_enabled,version=excluded.version,sync_state='synced',updated_at=excluded.updated_at
             WHERE excluded.version >= project_rules.version;
             """;
-        cmd.Parameters.AddWithValue("$id",change.Id);cmd.Parameters.AddWithValue("$project",projectId);cmd.Parameters.AddWithValue("$type",GetString(p,"rule_type")??"WindowTitle");cmd.Parameters.AddWithValue("$pattern",GetString(p,"pattern")??"");cmd.Parameters.AddWithValue("$weight",GetInt(p,"weight",50));cmd.Parameters.AddWithValue("$priority",GetInt(p,"priority",0));cmd.Parameters.AddWithValue("$enabled",GetBool(p,"is_enabled",true)?1:0);cmd.Parameters.AddWithValue("$version",change.Version);cmd.Parameters.AddWithValue("$updated",change.UpdatedAt);await cmd.ExecuteNonQueryAsync(ct);
+        cmd.Parameters.AddWithValue("$id",change.Id);cmd.Parameters.AddWithValue("$project",projectId);cmd.Parameters.AddWithValue("$type",GetString(p,"rule_type")??"WindowTitle");cmd.Parameters.AddWithValue("$operator",GetString(p,"operator")??"contains");cmd.Parameters.AddWithValue("$pattern",GetString(p,"pattern")??"");cmd.Parameters.AddWithValue("$weight",GetInt(p,"weight",50));cmd.Parameters.AddWithValue("$priority",GetInt(p,"priority",0));cmd.Parameters.AddWithValue("$enabled",GetBool(p,"is_enabled",true)?1:0);cmd.Parameters.AddWithValue("$version",change.Version);cmd.Parameters.AddWithValue("$updated",change.UpdatedAt);await cmd.ExecuteNonQueryAsync(ct);
     }
 
     private static async Task ApplyActivityTypeAsync(SqliteConnection c,SqliteTransaction tx,RemoteChange change,CancellationToken ct)

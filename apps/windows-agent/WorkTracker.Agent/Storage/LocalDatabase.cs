@@ -35,6 +35,7 @@ public sealed class LocalDatabase
             await command.ExecuteNonQueryAsync(cancellationToken);
         }
 
+        await EnsureColumnAsync(connection, "project_rules", "operator", "TEXT NOT NULL DEFAULT 'contains'", cancellationToken);
         await EnsureColumnAsync(connection, "projects", "customer_id", "TEXT NULL", cancellationToken);
         await EnsureColumnAsync(connection, "projects", "rate_multiplier", "REAL NOT NULL DEFAULT 1.0", cancellationToken);
         await EnsureColumnAsync(connection, "projects", "is_billable_default", "INTEGER NOT NULL DEFAULT 1", cancellationToken);

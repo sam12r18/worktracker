@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PricingOverride extends Model
 {
@@ -19,4 +20,8 @@ class PricingOverride extends Model
         'effective_from' => 'datetime',
         'effective_until' => 'datetime',
     ];
+
+    public function customer(): BelongsTo { return $this->belongsTo(Customer::class); }
+    public function project(): BelongsTo { return $this->belongsTo(Project::class); }
+    public function activityType(): BelongsTo { return $this->belongsTo(ActivityType::class); }
 }

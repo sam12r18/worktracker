@@ -33,7 +33,7 @@
 - priority
 - is_enabled
 
-Rule types initially: `path`, `window_title`, `process_name`, `executable_path`, `keyword`.
+Rule types on the sync wire are canonical PascalCase values: `Path`, `WindowTitle`, `ProcessName`, `ExecutablePath`, `Keyword`. Operators are `contains`, `equals`, `starts_with`, `ends_with`, `regex`. Windows persists and executes the operator locally; older local databases are upgraded with `operator=contains`.
 
 ## activity_sessions
 
