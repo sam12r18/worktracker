@@ -197,7 +197,27 @@ public partial class MainWindow : Window
             MessageBox.Show("پروژه را انتخاب کنید.", "WorkTracker", MessageBoxButton.OK, MessageBoxImage.Information);
             return;
         }
-        await _corrections.AssignEventAsync(row.Sessions, projectId, learn);
+        var correction = await _corrections.AssignEventAsync(row.Sessions, projectId, learn);
+        if (learn)
+        {
+            if (correction.LearnedRule is null)
+            {
+                MessageBox.Show(
+                    "انتساب انجام شد، اما از عنوان این رویداد الگوی امن و قابل استفاده‌ای برای یادگیری پیدا نشد. می‌توانید Rule را از پنل وب تعریف کنید.",
+                    "WorkTracker — یادگیری",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+            else
+            {
+                await _sync.TriggerAsync();
+                MessageBox.Show(
+                    $"انتساب انجام شد و Rule «{correction.LearnedRule.Pattern}» یاد گرفته و برای سرور Sync شد.",
+                    "WorkTracker — یادگیری",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
+        }
         await RefreshAsync();
     }
 
@@ -225,7 +245,9 @@ public partial class MainWindow : Window
                 return;
             }
 
-            await _corrections.AssignEventAsync(row.Sessions, projectId, learn);
+            var correction = await _corrections.AssignEventAsync(row.Sessions, projectId, learn);
+            if (learn && correction.LearnedRule is not null)
+                await _sync.TriggerAsync();
             await AgentLog.InfoAsync("classification.correction", learn ? "detected work event reassigned and learned" : "detected work event reassigned", new
             {
                 event_id = row.Id,
@@ -233,7 +255,19 @@ public partial class MainWindow : Window
                 from_project_id = row.ProjectId,
                 to_project_id = projectId,
                 learned = learn,
+                learned_rule_id = correction.LearnedRule?.Id,
+                learned_pattern = correction.LearnedRule?.Pattern,
             });
+            if (learn)
+            {
+                MessageBox.Show(
+                    correction.LearnedRule is null
+                        ? "انتساب انجام شد، اما الگوی امنی برای یادگیری پیدا نشد. Rule را از پنل وب تعریف کنید."
+                        : $"انتساب انجام شد و Rule «{correction.LearnedRule.Pattern}» یاد گرفته و Sync شد.",
+                    "WorkTracker — یادگیری",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Information);
+            }
             await RefreshAsync();
         }
         catch (Exception ex)

@@ -39,6 +39,7 @@ class SyncController extends Controller
             'changes' => ['present','array','max:1000'],
             'changes.*.entity' => ['required','in:project,project_rule,activity_session'],
             'changes.*.id' => ['required','string','max:64'],
+            'changes.*.client_outbox_id' => ['nullable','string','max:64'],
             'changes.*.operation' => ['required','in:upsert'],
             'changes.*.version' => ['required','integer','min:1'],
             'changes.*.payload' => ['required','array'],
@@ -101,7 +102,7 @@ class SyncController extends Controller
                             continue;
                         }
                         if ($project && (int)$project->version === $version) {
-                            $accepted[]=['entity'=>'project','id'=>$project->getKey(),'version'=>(int)$project->version];
+                            $accepted[]=['entity'=>'project','id'=>$project->getKey(),'version'=>(int)$project->version,'client_outbox_id'=>$change['client_outbox_id'] ?? null];
                             continue;
                         }
                         $wasNew = !$project;
@@ -113,7 +114,7 @@ class SyncController extends Controller
                         $project->user()->associate($user);
                         $project->save();
                         if ($wasNew) DB::table('project_multiplier_history')->insert(['project_id'=>$project->id,'customer_id'=>$project->customer_id,'multiplier'=>$project->rate_multiplier ?? 1,'is_billable_default'=>$project->is_billable_default ?? true,'effective_from'=>now(),'created_at'=>now(),'updated_at'=>now()]);
-                        $accepted[]=['entity'=>'project','id'=>$project->getKey(),'version'=>(int)$project->version];
+                        $accepted[]=['entity'=>'project','id'=>$project->getKey(),'version'=>(int)$project->version,'client_outbox_id'=>$change['client_outbox_id'] ?? null];
                         continue;
                     }
 
@@ -128,7 +129,7 @@ class SyncController extends Controller
                             continue;
                         }
                         if ($rule && (int)$rule->version === $version) {
-                            $accepted[]=['entity'=>'project_rule','id'=>$rule->getKey(),'version'=>(int)$rule->version];
+                            $accepted[]=['entity'=>'project_rule','id'=>$rule->getKey(),'version'=>(int)$rule->version,'client_outbox_id'=>$change['client_outbox_id'] ?? null];
                             continue;
                         }
                         $rule ??= new ProjectRule(['id' => $change['id']]);
@@ -140,7 +141,7 @@ class SyncController extends Controller
                         $rule->version = $version;
                         $rule->project()->associate($project);
                         $rule->save();
-                        $accepted[]=['entity'=>'project_rule','id'=>$rule->getKey(),'version'=>(int)$rule->version];
+                        $accepted[]=['entity'=>'project_rule','id'=>$rule->getKey(),'version'=>(int)$rule->version,'client_outbox_id'=>$change['client_outbox_id'] ?? null];
                         continue;
                     }
 
@@ -155,7 +156,7 @@ class SyncController extends Controller
                         continue;
                     }
                     if ($existing && (int)$existing->version === $version) {
-                        $accepted[] = ['entity'=>'activity_session','id'=>$change['id'],'version'=>(int)$existing->version];
+                        $accepted[] = ['entity'=>'activity_session','id'=>$change['id'],'version'=>(int)$existing->version,'client_outbox_id'=>$change['client_outbox_id'] ?? null];
                         continue;
                     }
 
@@ -176,7 +177,7 @@ class SyncController extends Controller
                     foreach ($this->projectionDatesForActivity($payload) as $projectionDate) {
                         $projectionDates[$projectionDate] = true;
                     }
-                    $accepted[] = ['entity'=>'activity_session','id'=>$session->getKey(),'version'=>(int)$session->version];
+                    $accepted[] = ['entity'=>'activity_session','id'=>$session->getKey(),'version'=>(int)$session->version,'client_outbox_id'=>$change['client_outbox_id'] ?? null];
                 }
             });
 

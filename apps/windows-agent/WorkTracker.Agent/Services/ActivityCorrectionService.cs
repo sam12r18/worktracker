@@ -5,6 +5,10 @@ using WorkTracker.Agent.Tracking;
 
 namespace WorkTracker.Agent.Services;
 
+public sealed record ActivityCorrectionResult(
+    IReadOnlyList<ActivitySession> Sessions,
+    ProjectRule? LearnedRule);
+
 public sealed class ActivityCorrectionService(ActivitySessionRepository activities, ProjectClassificationService classifier)
 {
     public async Task<ActivitySession?> AssignAsync(ActivitySession session, string projectId, bool learnWindowTitle, CancellationToken ct = default)
@@ -16,13 +20,14 @@ public sealed class ActivityCorrectionService(ActivitySessionRepository activiti
         return corrected;
     }
 
-    public async Task<IReadOnlyList<ActivitySession>> AssignEventAsync(IReadOnlyList<ActivitySession> sessions, string projectId, bool learnWindowTitle, CancellationToken ct = default)
+    public async Task<ActivityCorrectionResult> AssignEventAsync(IReadOnlyList<ActivitySession> sessions, string projectId, bool learnWindowTitle, CancellationToken ct = default)
     {
         var source = sessions.Where(x => x.Source == ActivitySource.AutoForeground).ToList();
         if (source.Count == 0) source = sessions.ToList();
         var corrected = await activities.AssignProjectsAsync(source.Select(x => x.Id), projectId, learnWindowTitle ? "user_event_correction+learned_rule" : "user_event_correction", 1.0, ct);
+        ProjectRule? learnedRule = null;
         if (learnWindowTitle && corrected.Count > 0)
-            await classifier.LearnFromSessionsAsync(projectId, corrected, ct);
-        return corrected;
+            learnedRule = await classifier.LearnFromSessionsAsync(projectId, corrected, ct);
+        return new ActivityCorrectionResult(corrected, learnedRule);
     }
 }

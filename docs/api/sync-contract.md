@@ -173,3 +173,33 @@ The server can pull four configuration entity families to a Windows Agent:
 Activity sessions may include `activity_type_confidence`, `activity_type_source`, and `activity_type_reason`. These fields describe **why** a type was selected and must not be confused with Project classification confidence. Manual type correction uses `activity_type_source=user_override` and confidence `1.0`.
 
 Because the cursor protocol does not yet have generic delete tombstones, deleting an Activity Type Rule in the Web UI is represented as `is_enabled=false` with an incremented version.
+
+## Exact outbox acknowledgement — alpha.7.3 reliability patch
+
+Each pushed change now carries an optional `client_outbox_id`, which is the immutable SQLite outbox-row id selected for that HTTP request. Laravel echoes the same value in the matching `accepted[]` row.
+
+Request item:
+
+```json
+{
+  "entity": "project_rule",
+  "id": "rule-id",
+  "client_outbox_id": "local-outbox-row-id",
+  "operation": "upsert",
+  "version": 1,
+  "payload": {}
+}
+```
+
+Accepted item:
+
+```json
+{
+  "entity": "project_rule",
+  "id": "rule-id",
+  "version": 1,
+  "client_outbox_id": "local-outbox-row-id"
+}
+```
+
+The Agent acknowledges by `client_outbox_id` first. Entity/id matching remains as a backward-compatible fallback for older servers. Whole-batch fallback is retained only when the response proves that every sent item was accepted and there were no conflicts. Configuration mutations such as `project_rule` are prioritized ahead of ordinary Activity Session rows in the local outbox, so explicit user learning reaches the server promptly even when Activity capture has a backlog.

@@ -26,6 +26,7 @@ public static class ActivityIntelligenceSelfTest
         TestActivityTypeConfiguredRule(failures);
         TestProjectScopedRuleWinsAtEqualPriority(failures);
         TestActivityTypeAmbiguousRulesStayUnknown(failures);
+        TestBrowserAssignAndLearnPattern(failures);
         return failures;
     }
 
@@ -237,6 +238,19 @@ public static class ActivityIntelligenceSelfTest
         };
         var result = resolver.Resolve(Snapshot("phpstorm64", "Ketabnow – app.php"), "A", null, Types(), rules);
         Expect(failures, result is null, "two close Activity Type candidates with the same priority must remain Unknown");
+    }
+
+
+    private static void TestBrowserAssignAndLearnPattern(List<string> failures)
+    {
+        var sessions = new[]
+        {
+            S("browser-1", "A", 0, 30, "chrome", "پیشنهاد ارسال فایل ZIP - Ketabnow - Google Chrome"),
+            S("browser-2", "A", 30, 60, "chrome", "Health مشکل و راه حل - Ketabnow - Google Chrome"),
+        };
+        var pattern = ProjectClassificationService.SuggestBrowserPattern(sessions);
+        Expect(failures, string.Equals(pattern, "Ketabnow", StringComparison.OrdinalIgnoreCase),
+            "explicit browser Assign + Learn must derive the stable project-like title segment instead of an exact volatile tab title");
     }
 
     private static IReadOnlyList<ActivityType> Types() => new[]

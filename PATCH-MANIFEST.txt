@@ -1,40 +1,12 @@
-WorkTracker 0.1.0-alpha.7.3 — Activity Intelligence & Work Events
-Overlay patch for the current repository root.
+WorkTracker alpha.7.3 reliability patch
 
-Files: 35
+Fixes:
+- Audit model table mapping: worktracker_audit_logs
+- Editable Activity Type code for user-owned types
+- Browser Assign + Learn stable title-segment learning and immediate rule Sync
+- Exact Sync outbox acknowledgement via client_outbox_id
+- Project Rule outbox priority
+- Activity Intelligence self-test for browser learning
+- Sync and Activity Intelligence documentation updates
 
-AGENTS.md
-ALPHA-7.3-ACTIVITY-INTELLIGENCE.md
-README-COMPLETE.md
-README.md
-apps/api/app/Http/Controllers/HealthController.php
-apps/api/app/Http/Controllers/WorkTracker/ProjectManagementController.php
-apps/api/config/worktracker-help.php
-apps/api/resources/views/worktracker/projects/show.blade.php
-apps/windows-agent/WorkTracker.Agent/App.xaml.cs
-apps/windows-agent/WorkTracker.Agent/Classification/ActivityTypeInferenceService.cs
-apps/windows-agent/WorkTracker.Agent/Classification/ProjectClassificationService.cs
-apps/windows-agent/WorkTracker.Agent/Domain/WorkEvent.cs
-apps/windows-agent/WorkTracker.Agent/Infrastructure/BuildInfo.cs
-apps/windows-agent/WorkTracker.Agent/MainWindow.xaml
-apps/windows-agent/WorkTracker.Agent/MainWindow.xaml.cs
-apps/windows-agent/WorkTracker.Agent/Services/ActivityCorrectionService.cs
-apps/windows-agent/WorkTracker.Agent/Services/TimeAccountingService.cs
-apps/windows-agent/WorkTracker.Agent/Services/WorkEventAggregationService.cs
-apps/windows-agent/WorkTracker.Agent/Storage/ActivitySessionRepository.cs
-apps/windows-agent/WorkTracker.Agent/Tracking/ActivityContextNormalizer.cs
-apps/windows-agent/WorkTracker.Agent/Tracking/TrackingEngine.cs
-apps/windows-agent/WorkTracker.Agent/ViewModels/WorkEventRow.cs
-apps/windows-agent/WorkTracker.Agent/WorkTracker.Agent.csproj
-docs/adr/0005-project-classification-and-learning-rules.md
-docs/adr/0014-work-events-context-normalization-and-continuity-bridge.md
-docs/architecture/activity-intelligence.md
-docs/architecture/data-model.md
-docs/architecture/time-accounting.md
-docs/handoff/current-project-map.md
-docs/handoff/new-chat-brief.md
-docs/handoff/release-0.1.0-alpha.7.3.md
-docs/review/alpha7.3-source-documentation-audit.md
-docs/roadmap/roadmap-0.1-to-1.0.md
-docs/status.md
-docs/testing/alpha7.3-activity-intelligence-smoke-test.md
+No Laravel migration is required.

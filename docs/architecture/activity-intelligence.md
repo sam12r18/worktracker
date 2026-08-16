@@ -44,7 +44,7 @@ Browser process identity is not sufficient. `Chrome` can contain unrelated proje
 
 ## Rule learning
 
-`Assign + Learn` is event-aware. For IDE contexts the learned `WindowTitle contains ...` pattern uses the stable workspace name rather than the entire file title. For browsers, the Agent first prefers the selected Project name/code when that text is actually present in the observed tab title; it does not learn a broad `ProcessName=chrome` rule or fabricate an exact tab-title rule when no stable hint exists. Web Project Rule management also includes a Pattern suggestion and a recent-activity preview to detect cross-project overmatching.
+`Assign + Learn` is event-aware. For IDE contexts the learned `WindowTitle contains ...` pattern uses the stable workspace name rather than the entire file title. For browsers, the Agent first prefers the selected Project name/code when that text is actually present in the observed tab title. If that hint is unavailable but the explicitly selected browser Work Event contains a segmented stable suffix/prefix (for example `پیشنهاد ارسال فایل ZIP - Ketabnow`), the learner may derive the bounded reusable segment `Ketabnow`. It still refuses broad `ProcessName=chrome` rules and refuses an unsplit volatile single title such as `Bale Web (17)`. Learned rules are queued as `project_rule`, prioritized in Sync, and immediately synced after an explicit Learn action when the connection is configured. Web Project Rule management also includes a Pattern suggestion and a recent-activity preview to detect cross-project overmatching.
 
 ## Corrections
 

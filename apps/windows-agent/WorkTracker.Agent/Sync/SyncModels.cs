@@ -24,7 +24,11 @@ public sealed record OutboxItem(string Id, string EntityType, string EntityId, s
     }
 }
 
-public sealed record SyncAccepted(string Entity, string Id, int Version);
+public sealed record SyncAccepted(
+    string Entity,
+    string Id,
+    int Version,
+    [property: JsonPropertyName("client_outbox_id")] string? ClientOutboxId = null);
 
 public sealed record SyncConflict(
     string Entity,

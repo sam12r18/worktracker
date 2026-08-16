@@ -13,7 +13,11 @@ public sealed class SyncOutboxRepository(LocalDatabase database)
             SELECT id,entity_type,entity_id,operation,payload_json,attempt_count
             FROM sync_outbox
             WHERE next_attempt_at IS NULL OR next_attempt_at <= $now
-            ORDER BY created_at,id LIMIT $limit;
+            ORDER BY CASE entity_type
+                WHEN 'project_rule' THEN 0
+                WHEN 'project' THEN 1
+                ELSE 2
+            END, created_at, id LIMIT $limit;
             """;
         cmd.Parameters.AddWithValue("$now", DateTimeOffset.UtcNow.ToString("O"));
         cmd.Parameters.AddWithValue("$limit", limit);
@@ -29,9 +33,17 @@ public sealed class SyncOutboxRepository(LocalDatabase database)
         bool wholeBatchAccepted,
         CancellationToken ct = default)
     {
-        // Acknowledge the exact outbox row that was sent, not every row for the same entity.
-        // This is both safer under concurrent local edits and avoids repeatedly resending a
-        // server-accepted batch when entity/id matching is affected by formatting/casing.
+        // alpha.7.3+: the server echoes client_outbox_id, so acknowledgement can target the exact
+        // local queue row that was sent. This remains backward compatible with older servers by
+        // falling back to entity/id matching, and only then to whole-batch acceptance when the
+        // response count proves that every sent row was accepted and there were no conflicts.
+        var sentByOutboxId = sentItems.ToDictionary(x => x.Id, x => x, StringComparer.OrdinalIgnoreCase);
+        var acceptedOutboxIds = accepted
+            .Where(x => !string.IsNullOrWhiteSpace(x.ClientOutboxId))
+            .Select(x => x.ClientOutboxId!.Trim())
+            .Where(sentByOutboxId.ContainsKey)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         var acceptedKeys = accepted
             .Where(x => !string.IsNullOrWhiteSpace(x.Entity) && !string.IsNullOrWhiteSpace(x.Id))
             .Select(x => EntityKey(x.Entity, x.Id))
@@ -41,20 +53,35 @@ public sealed class SyncOutboxRepository(LocalDatabase database)
             .GroupBy(x => EntityKey(x.EntityType, x.EntityId), StringComparer.OrdinalIgnoreCase)
             .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
 
-        var unmatchedAccepted = acceptedKeys.Where(x => !sentByKey.ContainsKey(x)).Take(20).ToList();
+        var unmatchedAccepted = accepted
+            .Where(x => string.IsNullOrWhiteSpace(x.ClientOutboxId) || !sentByOutboxId.ContainsKey(x.ClientOutboxId.Trim()))
+            .Select(x => EntityKey(x.Entity, x.Id))
+            .Where(x => !sentByKey.ContainsKey(x))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Take(20)
+            .ToList();
+
         var matched = 0;
         var deleted = 0;
+        var usedWholeBatchFallback = false;
 
         await using var connection = database.OpenConnection();
         await using var tx = await connection.BeginTransactionAsync(ct);
 
         foreach (var item in sentItems)
         {
-            var keyMatched = acceptedKeys.Contains(EntityKey(item.EntityType, item.EntityId));
+            var exactOutboxMatched = acceptedOutboxIds.Contains(item.Id);
+            var entityKeyMatched = acceptedKeys.Contains(EntityKey(item.EntityType, item.EntityId));
+            var keyMatched = exactOutboxMatched || entityKeyMatched;
+
             if (!keyMatched && !wholeBatchAccepted)
                 continue;
 
-            if (keyMatched) matched++;
+            if (keyMatched)
+                matched++;
+            else
+                usedWholeBatchFallback = true;
+
             await using var delete = connection.CreateCommand();
             delete.Transaction = (SqliteTransaction)tx;
             delete.CommandText = "DELETE FROM sync_outbox WHERE id=$outbox_id";
@@ -68,7 +95,7 @@ public sealed class SyncOutboxRepository(LocalDatabase database)
         }
 
         await tx.CommitAsync(ct);
-        return new SyncAcknowledgeResult(sentItems.Count, accepted.Count, matched, deleted, wholeBatchAccepted && matched != sentItems.Count, unmatchedAccepted);
+        return new SyncAcknowledgeResult(sentItems.Count, accepted.Count, matched, deleted, usedWholeBatchFallback, unmatchedAccepted);
     }
 
     private static string EntityKey(string entity, string id)

@@ -60,7 +60,7 @@
                 @if($t->user_id)
                     <form method="post" action="{{ route('worktracker.billing.activity-types.update',$t->id) }}" class="wt-inline-form">@csrf
                         <label>عنوان<input name="name" value="{{ $t->name }}" required></label>
-                        <span class="wt-badge">{{ $t->code }}</span>
+                        <label>کد<input name="code" value="{{ $t->code }}" required maxlength="64" pattern="[A-Za-z0-9_-]+"><small class="wt-muted">برای Sync و Ruleها استفاده می‌شود؛ تغییر کد شناسه داخلی Activity Type را عوض نمی‌کند.</small></label>
                         <label>نرخ پایه<input name="base_hourly_rate_minor" type="number" min="0" value="{{ $t->base_hourly_rate_minor }}" required></label>
                         <label>واحد<input name="currency" value="{{ $t->currency }}" required></label>
                         <label>ترتیب<input name="sort_order" type="number" min="0" value="{{ $t->sort_order }}" required></label>

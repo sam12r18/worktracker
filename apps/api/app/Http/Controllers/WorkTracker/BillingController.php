@@ -132,7 +132,21 @@ class BillingController extends Controller
     {
         $type=ActivityType::where(fn($q)=>$q->whereNull('user_id')->orWhere('user_id',$request->user()->id))->findOrFail($activityTypeId);
         abort_if($type->user_id===null,403,'Global activity types are read-only for this user.');
-        $data=$request->validate(['name'=>['required','string','max:190'],'base_hourly_rate_minor'=>['required','integer','min:0'],'currency'=>['required','string','max:8'],'is_billable_default'=>['nullable','boolean'],'is_active'=>['nullable','boolean'],'sort_order'=>['required','integer','min:0','max:100000'],'effective_from'=>['required','date']]);
+        $data=$request->validate([
+            'code'=>[
+                'required','alpha_dash','max:64',
+                Rule::unique('activity_types','code')
+                    ->where(fn($query)=>$query->where('user_id',$request->user()->id))
+                    ->ignore($type->getKey()),
+            ],
+            'name'=>['required','string','max:190'],
+            'base_hourly_rate_minor'=>['required','integer','min:0'],
+            'currency'=>['required','string','max:8'],
+            'is_billable_default'=>['nullable','boolean'],
+            'is_active'=>['nullable','boolean'],
+            'sort_order'=>['required','integer','min:0','max:100000'],
+            'effective_from'=>['required','date'],
+        ]);
         $type->fill(collect($data)->except('effective_from')->all()); $type->is_billable_default=(bool)($data['is_billable_default']??false); $type->is_active=(bool)($data['is_active']??false); $type->version=((int)$type->version)+1; $type->save();
         DB::table('activity_rate_history')->insert(['activity_type_id'=>$type->id,'hourly_rate_minor'=>$type->base_hourly_rate_minor,'currency'=>$type->currency,'is_billable_default'=>$type->is_billable_default,'effective_from'=>$data['effective_from'],'created_at'=>now(),'updated_at'=>now()]);
         return back()->with('status','نرخ فعالیت و تاریخچه آن به‌روزرسانی شد.');

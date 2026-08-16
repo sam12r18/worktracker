@@ -36,6 +36,7 @@ public sealed class ApiSyncClient(HttpClient http)
         {
             entity = x.EntityType,
             id = x.EntityId,
+            client_outbox_id = x.Id,
             operation = x.Operation,
             version = x.Version,
             payload = JsonSerializer.Deserialize<JsonElement>(x.PayloadJson, JsonOptions)
