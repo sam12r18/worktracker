@@ -18,4 +18,15 @@ return [
 
     // Keep storage/API timestamps in UTC; convert to this timezone at the UI/report boundary.
     'display_timezone' => (string) env('WORKTRACKER_DISPLAY_TIMEZONE', 'Asia/Tehran'),
+
+    // Activity Intelligence defaults must stay in parity with the Windows Agent.
+    'activity_intelligence' => [
+        'projection_version' => 'alpha.7.3-p1',
+        'merge_gap_seconds' => 15,
+        'initial_anchor_seconds' => 60,
+        'bridge_max_seconds' => 120,
+        'bridge_rearm_seconds' => 120,
+        // Sync rebuild is best-effort and intentionally capped so a historical backlog cannot stall device sync.
+        'sync_rebuild_max_dates' => 7,
+    ],
 ];

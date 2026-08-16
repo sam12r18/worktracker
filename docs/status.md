@@ -11,7 +11,7 @@ Current release: **0.1.0-alpha.7.3 — Activity Intelligence & Work Events**
 - alpha.6: Activity Type selection/correction in Windows, billing configuration Pull, effective-dated pricing history and invoice draft/final lifecycle.
 - alpha.7: historical Activity editor + Audit Log, daily/weekly/monthly/custom reports, visual overlap timeline, responsive dashboard redesign.
 - alpha.7.2: first-class Project/Customer admin UI, Project Rules, project Tasks, pricing override lifecycle/history visibility, Activity Type activation/order, dedicated Access Token UI, route-aware contextual Help, Agent reliability and Sync diagnostics.
-- alpha.7.3: Work Event projection, IDE context normalization, event-level correction/learning, per-project short Continuity Bridges with mutual overlap, Project Pulse widget, Rule pattern preview and conservative explicit Debug/Test inference.
+- alpha.7.3: Work Event projection, IDE context normalization, event-level correction/learning, per-project short Continuity Bridges with mutual overlap, Project Pulse widget (full + compact), Rule pattern preview, conservative explicit Debug/Test inference, and Laravel Work Event/Bridge materialization for audit/report parity.
 
 ## Important semantics
 - Effort is additive. Legitimate overlap is never capped to wall-clock coverage.
@@ -28,7 +28,8 @@ Current release: **0.1.0-alpha.7.3 — Activity Intelligence & Work Events**
 
 ## Next
 - Real Windows build + alpha.7.3 Activity Intelligence smoke test.
-- Server-side Work Event/Continuity Bridge projection for reports and billing audit parity.
+- Validate Laravel/Windows Work Event parity on real synced data and freeze projection test vectors.
+- Keep finalized Billing on raw Activity Sessions until immutable Bridge financial snapshot semantics are implemented.
 - Browser/IDE enrichment after Project Rule behavior is validated against real foreground windows.
 - Work-report export/presets and richer Task workflows.
 - Team/organization/RBAC management remains intentionally deferred until its ownership model is specified.
@@ -49,3 +50,11 @@ Current release: **0.1.0-alpha.7.3 — Activity Intelligence & Work Events**
 - Same-Project app/title changes stay one projected Work Event while raw sessions remain auditable.
 - Windows build now runs deterministic Activity Intelligence scenarios after Release compilation.
 - Project Pulse widget shows the three most recent Projects with live credited/direct/bridge counters and overall Effort/Coverage/Concurrent.
+
+## alpha.7.3 Laravel Work Event projection
+- Added materialized `work_events`, `work_event_segments` and `continuity_bridges` tables.
+- Sync rebuilds affected local dates after accepted Activity changes; historical Web edits rebuild old/new dates.
+- Work Event audit UI and admin API expose Direct, Bridge, Credited, raw Segment links and interrupted Projects.
+- Central reports can include derived Bridge Effort while invoice generation remains intentionally unchanged.
+- Projection-day queries convert `Asia/Tehran` day boundaries to UTC before MySQL filtering.
+- Health now requires the Work Event projection schema and reports the Activity Intelligence policy/version.

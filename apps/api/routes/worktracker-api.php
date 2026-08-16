@@ -9,6 +9,7 @@ use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\SyncConflictController;
 use App\Http\Controllers\Api\V1\SyncController;
 use App\Http\Controllers\Api\V1\TaskController;
+use App\Http\Controllers\Api\V1\WorkEventController;
 use App\Http\Middleware\RequireWorkTrackerHttps;
 use App\Http\Middleware\RequireWorkTrackerTokenAbility;
 use Illuminate\Support\Facades\Route;
@@ -34,6 +35,7 @@ Route::prefix('v1')->middleware(['auth:sanctum', RequireWorkTrackerHttps::class]
         Route::get('activity-sessions/{activitySession}', [ActivitySessionController::class, 'show']);
         Route::get('reports/daily', [ReportController::class, 'daily']);
         Route::get('reports/projects/{project}', [ReportController::class, 'project']);
+        Route::get('work-events', [WorkEventController::class, 'index']);
         Route::get('operations/overview', [OperationsController::class, 'overview']);
         Route::get('sync-conflicts', [SyncConflictController::class, 'index']);
         Route::get('sync-conflicts/{syncConflict}', [SyncConflictController::class, 'show']);
@@ -55,6 +57,7 @@ Route::prefix('v1')->middleware(['auth:sanctum', RequireWorkTrackerHttps::class]
         Route::delete('projects/{project}/tasks/{task}', [TaskController::class, 'destroy']);
         Route::put('devices/{device}', [DeviceController::class, 'update']);
         Route::patch('devices/{device}', [DeviceController::class, 'update']);
+        Route::post('work-events/rebuild', [WorkEventController::class, 'rebuild']);
         Route::post('sync-conflicts/{syncConflict}/resolve', [SyncConflictController::class, 'resolve']);
     });
 });

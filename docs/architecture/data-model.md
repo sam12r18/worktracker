@@ -172,6 +172,47 @@ Finalized invoice items do not rewrite Activity timestamps or durations. Invoice
 
 ## Derived Work Event projection (alpha.7.3)
 
-`work_events` are not a persisted table in alpha.7.3. A Work Event is derived from local raw `activity_sessions` using Project/context identity and short continuity rules. It exposes: Project, event start/end, direct seconds, bridge seconds, credited seconds and the underlying raw session ids.
+Laravel now materializes the same derived Work Event projection used by the Windows Agent. Raw `activity_sessions` remain the source of truth and are never rewritten by the projection.
 
-This deliberate non-persistence keeps correction and Rule learning anchored to raw auditable records. Server-side materialization is deferred until reporting/billing semantics for derived continuity credit have a dedicated audit representation.
+### work_events
+
+- `id` deterministic SHA-256 projection id
+- `user_id`
+- `device_id`
+- `project_id` nullable
+- `projection_date` local reporting date
+- `timezone`
+- `event_kind` (`foreground`, `unknown_foreground`, `manual`)
+- `context_key`
+- `started_at` / `ended_at`
+- `direct_seconds`
+- `bridge_seconds`
+- `credited_seconds`
+- `segment_count` / `bridge_count`
+- `applications` JSON
+- `projection_version`
+- `calculated_at`
+
+### work_event_segments
+
+Maps a derived Work Event back to every raw Activity Session used to build it. This table is the audit link that allows the UI to expand an Event without losing raw detail.
+
+### continuity_bridges
+
+Stores each derived continuity credit explicitly:
+
+- `work_event_id`
+- `anchor_project_id`
+- `device_id` / `user_id`
+- `projection_date`
+- `started_at` / `ended_at`
+- `duration_seconds`
+- `interrupted_project_ids` JSON
+- `reason`
+- `projection_version`
+
+Mutual and multi-project Bridge rows are valid. The same wall-clock interval may therefore appear in several Project projections when each Project independently satisfies the continuity policy.
+
+### Persistence boundary
+
+The projection is derived and rebuildable. Historical edits and accepted Sync changes rebuild affected local dates. Final invoice calculation still uses raw Activity Sessions until Bridge billing parity is explicitly enabled in a later phase.

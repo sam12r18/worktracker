@@ -13,6 +13,7 @@
             ['worktracker.projects.*', 'worktracker.projects.index', 'پروژه‌ها'],
             ['worktracker.customers.*', 'worktracker.customers.index', 'مشتری‌ها'],
             ['worktracker.activities.*', 'worktracker.activities.index', 'فعالیت‌ها'],
+            ['worktracker.work-events.*', 'worktracker.work-events.index', 'رویدادهای کاری'],
             ['worktracker.reports.*', 'worktracker.reports.index', 'گزارش‌ها'],
             ['worktracker.billing*', 'worktracker.billing', 'قیمت‌گذاری'],
             ['worktracker.invoices.*', 'worktracker.invoices.index', 'فاکتورها'],

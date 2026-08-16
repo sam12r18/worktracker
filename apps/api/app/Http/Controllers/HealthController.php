@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\WorkEventProjectionService;
 use Composer\InstalledVersions;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Cache;
@@ -41,6 +42,9 @@ class HealthController extends Controller
             'activity_types',
             'invoices',
             'worktracker_audit_logs',
+            'work_events',
+            'work_event_segments',
+            'continuity_bridges',
         ];
 
         $missingTables = [];
@@ -85,6 +89,7 @@ class HealthController extends Controller
             'worktracker.dashboard',
             'worktracker.activities.index',
             'worktracker.reports.index',
+            'worktracker.work-events.index',
         ];
         $missingRoutes = array_values(array_filter(
             $requiredRoutes,
@@ -114,6 +119,28 @@ class HealthController extends Controller
             'status' => $sanctumInstalled ? 'ok' : 'fail',
             'version' => $sanctumVersion,
         ];
+        $activitySchemaReady = empty(array_intersect(['work_events', 'work_event_segments', 'continuity_bridges'], $missingTables));
+        $configuredPolicy = [
+            'projection_version' => (string) config('worktracker.activity_intelligence.projection_version', WorkEventProjectionService::PROJECTION_VERSION),
+            'initial_anchor_seconds' => (int) config('worktracker.activity_intelligence.initial_anchor_seconds', WorkEventProjectionService::INITIAL_ANCHOR_SECONDS),
+            'bridge_max_seconds' => (int) config('worktracker.activity_intelligence.bridge_max_seconds', WorkEventProjectionService::BRIDGE_MAX_SECONDS),
+            'bridge_rearm_seconds' => (int) config('worktracker.activity_intelligence.bridge_rearm_seconds', WorkEventProjectionService::BRIDGE_REARM_SECONDS),
+        ];
+        $compiledPolicy = [
+            'projection_version' => WorkEventProjectionService::PROJECTION_VERSION,
+            'initial_anchor_seconds' => WorkEventProjectionService::INITIAL_ANCHOR_SECONDS,
+            'bridge_max_seconds' => WorkEventProjectionService::BRIDGE_MAX_SECONDS,
+            'bridge_rearm_seconds' => WorkEventProjectionService::BRIDGE_REARM_SECONDS,
+        ];
+        $policyMatches = $configuredPolicy === $compiledPolicy;
+        $checks['activity_intelligence'] = [
+            'status' => $activitySchemaReady && $policyMatches ? 'ok' : 'fail',
+            ...$configuredPolicy,
+            'policy_matches_compiled_projection' => $policyMatches,
+        ];
+        if (! $policyMatches) {
+            $ok = false;
+        }
         if (! $sanctumInstalled) {
             $ok = false;
         }

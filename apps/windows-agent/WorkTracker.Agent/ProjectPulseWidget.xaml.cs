@@ -23,6 +23,9 @@ public partial class ProjectPulseWidget : Window
     private DateTimeOffset _lastDataReload = DateTimeOffset.MinValue;
     private bool _refreshing;
     private bool _allowClose;
+    private bool _isCompact;
+    private double _normalWidth = 330;
+    private double _normalHeight = 292;
 
     public ProjectPulseWidget(ActivitySessionRepository repository, ProjectRepository projects, TrackingEngine tracking)
     {
@@ -126,6 +129,7 @@ public partial class ProjectPulseWidget : Window
                 .ToList();
 
             PulseRowsList.ItemsSource = rows;
+            CompactPulseRowsList.ItemsSource = rows;
             WidgetStateText.Text = rows.Count == 0
                 ? "هنوز پروژه‌ای برای امروز ثبت نشده"
                 : "سه پروژه آخر · زمان اعتباری امروز";
@@ -139,6 +143,7 @@ public partial class ProjectPulseWidget : Window
             PulseEffortText.Text = FormatLong(summary.EffortSeconds);
             PulseCoverageText.Text = FormatLong(summary.ElapsedCoverageSeconds);
             PulseConcurrentText.Text = FormatLong(summary.ConcurrentEffortSeconds);
+            CompactSummaryText.Text = $"E {FormatShort(summary.EffortSeconds)} · +{FormatShort(summary.ConcurrentEffortSeconds)}";
         }
         catch (Exception ex)
         {
@@ -161,6 +166,55 @@ public partial class ProjectPulseWidget : Window
     private void Window_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ButtonState == MouseButtonState.Pressed) DragMove();
+    }
+
+    private void CompactModeButton_Click(object sender, RoutedEventArgs e)
+    {
+        var rightEdge = Left + ActualWidth;
+        if (!_isCompact)
+        {
+            _normalWidth = Math.Max(300, ActualWidth);
+            _normalHeight = Math.Max(255, ActualHeight);
+        }
+
+        _isCompact = !_isCompact;
+        ApplyLayoutMode();
+
+        // Keep the widget visually docked to the same right edge when its width changes.
+        Dispatcher.BeginInvoke(() =>
+        {
+            var workArea = SystemParameters.WorkArea;
+            Left = Math.Max(workArea.Left, Math.Min(workArea.Right - ActualWidth, rightEdge - ActualWidth));
+            Top = Math.Max(workArea.Top, Math.Min(workArea.Bottom - ActualHeight, Top));
+        }, DispatcherPriority.Loaded);
+    }
+
+    private void ApplyLayoutMode()
+    {
+        NormalHeaderText.Visibility = _isCompact ? Visibility.Collapsed : Visibility.Visible;
+        CompactHeaderText.Visibility = _isCompact ? Visibility.Visible : Visibility.Collapsed;
+        PulseRowsList.Visibility = _isCompact ? Visibility.Collapsed : Visibility.Visible;
+        CompactPulseRowsList.Visibility = _isCompact ? Visibility.Visible : Visibility.Collapsed;
+        PulseSummaryPanel.Visibility = _isCompact ? Visibility.Collapsed : Visibility.Visible;
+        CompactSummaryPanel.Visibility = _isCompact ? Visibility.Visible : Visibility.Collapsed;
+        CompactModeButton.Content = _isCompact ? "کامل" : "فشرده";
+
+        if (_isCompact)
+        {
+            MinWidth = 220;
+            MinHeight = 132;
+            Width = 238;
+            Height = 146;
+            ResizeMode = ResizeMode.NoResize;
+        }
+        else
+        {
+            MinWidth = 300;
+            MinHeight = 255;
+            Width = _normalWidth;
+            Height = _normalHeight;
+            ResizeMode = ResizeMode.CanResizeWithGrip;
+        }
     }
 
     private void HideButton_Click(object sender, RoutedEventArgs e) => Hide();

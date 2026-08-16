@@ -160,14 +160,9 @@
 
 <script>
 (() => {
-    const samples = @json($recentRuleSamples->map(fn($row) => [
-        'title' => $row->window_title,
-        'process' => $row->process_name,
-        'path' => $row->executable_path,
-        'project_id' => $row->project_id,
-    ])->values());
+    const samples = {{ Illuminate\Support\Js::from($recentRuleSamplesForJs) }};
     const currentProjectId = @json((string) $project->id);
-    const projectHints = @json(collect([$project->code, $project->name])->filter()->values());
+    const projectHints = {{ Illuminate\Support\Js::from($projectHintsForJs) }};
     const type = document.getElementById('rule-type');
     const operator = document.getElementById('rule-operator');
     const pattern = document.getElementById('rule-pattern');

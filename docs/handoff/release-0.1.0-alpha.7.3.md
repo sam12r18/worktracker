@@ -12,11 +12,16 @@
 - Assign + Learn uses stable IDE workspace patterns.
 - Added conservative explicit Debug/Test Activity Type inference; ambiguous IDE foreground remains untyped.
 
-## Web
+## Web / Laravel
 
 - Project Rule form upgraded to a Pattern-oriented Rule Builder.
 - Stable pattern suggestion from a sample window title.
 - 7-day recent-context preview shows matches in the current Project, other Projects and unknown activity.
+- Added server Work Event materialization with `work_events`, `work_event_segments` and `continuity_bridges`.
+- Added Work Event audit page and read API plus explicit rebuild action.
+- Accepted Sync Activity changes rebuild affected local dates; historical web corrections rebuild stale old/new dates.
+- Central reports now expose Raw/Direct, Bridge, Credited Effort and Work Event counts.
+- Project Pulse widget now supports a compact layout.
 
 ## Documentation
 
@@ -26,4 +31,4 @@
 
 ## Important boundary
 
-Continuity Bridge is currently a derived Windows projection and local accounting credit. Raw sessions remain the sync source of truth. Server reporting/final invoice parity for derived continuity credit is intentionally not silently enabled in this release and remains the next Activity Intelligence sub-phase.
+Continuity Bridge is derived on both Windows and Laravel, while raw sessions remain the sync source of truth. Server reports may show the derived credit and the dedicated Bridge audit rows. Final invoice calculation still uses raw Activity Sessions; Bridge billing remains deliberately disabled until immutable financial snapshot/parity tests are completed.

@@ -77,3 +77,14 @@ Idle, pause, sleep, WorkTracker's own UI and genuinely unobserved foreground gap
 ## Project Pulse widget
 
 The Windows Agent includes a small always-on-top `ProjectPulseWidget`. It shows the three most recently active Projects, today's credited time per Project, direct vs continuity time, current application/state, and global Effort/Coverage/Concurrent counters. The current foreground segment is projected in memory before it is flushed to SQLite, so the active Project counter advances live without changing the raw persistence model.
+
+The widget has both **full** and **compact** layouts. Compact mode keeps the three Project names and live credited counters visible in a narrow 238×146 window with a one-line Effort/Concurrent summary; toggling back restores the previous full-size dimensions.
+
+
+## Laravel projection parity
+
+The backend now contains `WorkEventProjectionService`, `WorkEventMaterializer`, and materialized `work_events`, `work_event_segments`, and `continuity_bridges` tables. The server uses the same policy values as the Agent: 60s initial anchor, 120s maximum Bridge, 120s per-Project re-arm, 15s capture merge tolerance, and independent mutual/multi-Project continuity.
+
+Accepted Activity Sync changes rebuild only affected local dates with a bounded number of dates per request. Historical Web corrections rebuild both the previous and new local dates when an Activity crosses a date boundary. The Work Event audit page can also explicitly rebuild a selected day.
+
+Reports may display Direct + Bridge credited Effort, while finalized Billing intentionally remains on raw Activity Sessions until financial parity tests and immutable Bridge snapshot semantics are completed.

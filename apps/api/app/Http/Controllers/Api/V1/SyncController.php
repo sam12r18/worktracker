@@ -10,6 +10,7 @@ use App\Models\Project;
 use App\Models\ProjectRule;
 use App\Models\SyncConflict;
 use App\Services\SyncConflictService;
+use App\Services\WorkEventMaterializer;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,7 +23,7 @@ use Illuminate\Validation\Rule;
 
 class SyncController extends Controller
 {
-    public function __invoke(Request $request, SyncConflictService $conflictService): JsonResponse
+    public function __invoke(Request $request, SyncConflictService $conflictService, WorkEventMaterializer $workEvents): JsonResponse
     {
         $correlationId = $this->correlationId($request);
         $startedAt = microtime(true);
@@ -83,9 +84,10 @@ class SyncController extends Controller
         try {
             $accepted = [];
             $conflicts = [];
+            $projectionDates = [];
             $syncStartedAt = CarbonImmutable::now();
 
-            DB::transaction(function () use ($data, $user, $device, $conflictService, &$accepted, &$conflicts) {
+            DB::transaction(function () use ($data, $user, $device, $conflictService, &$accepted, &$conflicts, &$projectionDates) {
                 foreach ($data['changes'] as $change) {
                     $payload = $this->validateEntityPayload($change['entity'], $change['id'], $change['payload'], $user->getKey(), $device->getKey());
                     $version = (int) $change['version'];
@@ -156,15 +158,50 @@ class SyncController extends Controller
                         continue;
                     }
 
+                    // If a correction moves an Activity across a local day boundary, both the old
+                    // and new projection dates must be rebuilt. Otherwise stale Work Events can remain.
+                    if ($existing) {
+                        foreach ($this->projectionDatesForRange($existing->started_at, $existing->ended_at) as $projectionDate) {
+                            $projectionDates[$projectionDate] = true;
+                        }
+                    }
+
                     $session = $existing ?? new ActivitySession(['id' => $change['id']]);
                     $session->fill($payload);
                     $session->user()->associate($user);
                     $session->device()->associate($device);
                     $session->version = $version;
                     $session->save();
+                    foreach ($this->projectionDatesForActivity($payload) as $projectionDate) {
+                        $projectionDates[$projectionDate] = true;
+                    }
                     $accepted[] = ['entity'=>'activity_session','id'=>$session->getKey(),'version'=>(int)$session->version];
                 }
             });
+
+            $projectionRebuild = ['requested'=>count($projectionDates),'rebuilt'=>0,'deferred'=>0];
+            if ($projectionDates !== []) {
+                $dates = array_keys($projectionDates);
+                sort($dates);
+                $maxDates = max(1, (int) config('worktracker.activity_intelligence.sync_rebuild_max_dates', 7));
+                $selectedDates = array_slice($dates, -$maxDates);
+                $projectionRebuild['deferred'] = max(0, count($dates) - count($selectedDates));
+                foreach ($selectedDates as $projectionDate) {
+                    try {
+                        $workEvents->rebuildDate($user->getKey(), $projectionDate, (string) $device->getKey(), (string) config('worktracker.display_timezone', 'Asia/Tehran'), $correlationId);
+                        $projectionRebuild['rebuilt']++;
+                    } catch (\Throwable $projectionError) {
+                        Log::channel('worktracker_sync')->warning('projection.rebuild_failed', [
+                            'correlation_id'=>$correlationId,
+                            'user_id'=>$user->getKey(),
+                            'device_id'=>$device->getKey(),
+                            'projection_date'=>$projectionDate,
+                            'exception'=>$projectionError::class,
+                            'message'=>$projectionError->getMessage(),
+                        ]);
+                    }
+                }
+            }
 
             $cursor = $this->decodeCursor($data['cursor'] ?? null);
             $limit = (int)($data['pull_limit'] ?? 500);
@@ -194,12 +231,14 @@ class SyncController extends Controller
                 'resolutions' => count($resolutions),
                 'remote_changes' => count($remoteChanges),
                 'remote_by_entity' => collect($remoteChanges)->countBy('entity')->all(),
+                'projection_rebuild' => $projectionRebuild,
                 'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
             ]);
 
             return response()->json([
                 'accepted'=>$accepted,'conflicts'=>$conflicts,'resolutions'=>$resolutions,
                 'remote_changes'=>$remoteChanges,'server_cursor'=>$nextCursor,
+                'projection'=>$projectionRebuild,
             ])->header('X-WorkTracker-Correlation-ID', $correlationId);
         } catch (\Throwable $e) {
             $device->forceFill(['last_sync_error'=>mb_substr($e->getMessage(),0,4000),'last_seen_at'=>now()])->save();
@@ -280,6 +319,28 @@ class SyncController extends Controller
         return $validated;
     }
 
+
+    /** @param array<string,mixed> $payload @return list<string> */
+    private function projectionDatesForActivity(array $payload): array
+    {
+        return $this->projectionDatesForRange($payload['started_at'], $payload['ended_at']);
+    }
+
+    /** @return list<string> */
+    private function projectionDatesForRange(mixed $startedAt, mixed $endedAt): array
+    {
+        $timezone = (string) config('worktracker.display_timezone', 'Asia/Tehran');
+        $start = CarbonImmutable::parse($startedAt)->setTimezone($timezone)->startOfDay();
+        $end = CarbonImmutable::parse($endedAt)->setTimezone($timezone);
+        // End is exclusive for projection-day membership. Avoid creating the next date for an exact midnight end.
+        $last = $end->subSecond()->startOfDay();
+        $dates = [];
+        for ($cursor = $start; $cursor->lessThanOrEqualTo($last); $cursor = $cursor->addDay()) {
+            $dates[] = $cursor->toDateString();
+            if (count($dates) >= 8) break;
+        }
+        return $dates;
+    }
 
     private function recordConflict(SyncConflictService $service, int|string $userId, string $deviceId, string $entity, string $id, int $clientVersion, int $serverVersion, array $clientPayload): string
     {

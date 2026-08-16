@@ -19,7 +19,7 @@
             BorderBrush="{StaticResource WtBorderStrongBrush}"
             BorderThickness="1"
             CornerRadius="12"
-            Padding="12">
+            Padding="10">
         <Grid>
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
@@ -29,15 +29,17 @@
 
             <DockPanel LastChildFill="True">
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" FlowDirection="LeftToRight">
-                    <Button Content="×" Width="30" MinWidth="30" Height="30" MinHeight="30" Padding="0" Click="HideButton_Click" ToolTip="پنهان کردن ویجت"/>
+                    <Button x:Name="CompactModeButton" Content="فشرده" MinWidth="38" Height="28" MinHeight="28" Padding="7,0" Click="CompactModeButton_Click" ToolTip="تغییر بین نمای فشرده و کامل"/>
+                    <Button Content="×" Width="28" MinWidth="28" Height="28" MinHeight="28" Padding="0" Margin="5,0,0,0" Click="HideButton_Click" ToolTip="پنهان کردن ویجت"/>
                 </StackPanel>
-                <StackPanel>
+                <StackPanel x:Name="NormalHeaderText">
                     <TextBlock Text="فعالیت‌های اخیر" FontSize="15" FontWeight="SemiBold"/>
                     <TextBlock x:Name="WidgetStateText" Text="سه پروژه آخر · زمان اعتباری امروز" Margin="0,3,0,0" FontSize="10.5" Foreground="{StaticResource WtMutedBrush}"/>
                 </StackPanel>
+                <TextBlock x:Name="CompactHeaderText" Text="WorkTracker" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Visibility="Collapsed"/>
             </DockPanel>
 
-            <ItemsControl x:Name="PulseRowsList" Grid.Row="1" Margin="0,10,0,8">
+            <ItemsControl x:Name="PulseRowsList" Grid.Row="1" Margin="0,9,0,7">
                 <ItemsControl.ItemTemplate>
                     <DataTemplate>
                         <Border Background="{StaticResource WtPanelBrush}"
@@ -82,7 +84,35 @@
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
 
-            <Border Grid.Row="2" Background="{StaticResource WtPanelAltBrush}" CornerRadius="8" Padding="8,6">
+            <ItemsControl x:Name="CompactPulseRowsList" Grid.Row="1" Margin="0,7,0,5" Visibility="Collapsed">
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate>
+                        <Grid Margin="1,2">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto"/>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            <Ellipse Width="6" Height="6" VerticalAlignment="Center" Margin="0,0,7,0">
+                                <Ellipse.Style>
+                                    <Style TargetType="Ellipse">
+                                        <Setter Property="Fill" Value="{StaticResource WtMutedBrush}"/>
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding IsActive}" Value="True">
+                                                <Setter Property="Fill" Value="{StaticResource WtSuccessBrush}"/>
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Ellipse.Style>
+                            </Ellipse>
+                            <TextBlock Grid.Column="1" Text="{Binding Project}" FontSize="11" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="2" Text="{Binding Duration}" Margin="8,0,0,0" FontFamily="Consolas" FontSize="13" FontWeight="SemiBold" FlowDirection="LeftToRight" VerticalAlignment="Center"/>
+                        </Grid>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+
+            <Border x:Name="PulseSummaryPanel" Grid.Row="2" Background="{StaticResource WtPanelAltBrush}" CornerRadius="8" Padding="8,6">
                 <Grid>
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*"/>
@@ -102,6 +132,10 @@
                         <TextBlock x:Name="PulseConcurrentText" Text="00:00:00" FontFamily="Consolas" FontWeight="SemiBold" FlowDirection="LeftToRight"/>
                     </StackPanel>
                 </Grid>
+            </Border>
+
+            <Border x:Name="CompactSummaryPanel" Grid.Row="2" Background="{StaticResource WtPanelAltBrush}" CornerRadius="7" Padding="7,4" Visibility="Collapsed">
+                <TextBlock x:Name="CompactSummaryText" Text="Effort 00:00 · +00:00" HorizontalAlignment="Center" FontSize="9.5" FontFamily="Consolas" FlowDirection="LeftToRight"/>
             </Border>
         </Grid>
     </Border>

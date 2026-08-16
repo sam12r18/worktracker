@@ -41,7 +41,8 @@ Project/Customer master-data UI, Project Rule management, contextual help, Task 
 - Rule Builder pattern suggestion + recent-activity match preview.
 - Conservative explicit Debug/Test inference; ambiguous IDE foreground stays untyped.
 - P0 Agent core completed: explicit continuity decision state, mutual/multi-project bridge projection, deterministic build self-test, live Project Pulse widget and decision logging.
-- Follow-up inside this workstream: server report/invoice parity for derived continuity credits.
+- Laravel Work Event Projection + Bridge Audit started: derived tables, explicit rebuild, Sync-triggered rebuild, Work Event API/UI and report parity are implemented.
+- Finalized invoice/Billing parity for derived continuity credits remains intentionally pending until financial audit semantics are frozen.
 
 ## 0.2 — Browser/IDE enrichment
 Chrome/Edge extension contract, privacy allow/deny rules, active tab/domain metadata, PhpStorm/VS Code/Git adapters, explicit IDE run/debug/test state and background-job sources.

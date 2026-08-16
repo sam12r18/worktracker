@@ -63,9 +63,20 @@ return [
             'title' => 'راهنمای فعالیت‌ها',
             'body' => ['ویرایش تاریخی پروژه یا نوع فعالیت زمان شروع/پایان را مگر با اقدام صریح تغییر نمی‌دهد و Audit ثبت می‌شود.'],
         ],
+        'worktracker.work-events.index' => [
+            'title' => 'راهنمای رویدادهای کاری',
+            'body' => [
+                'Work Event یک Projection مشتق‌شده از Raw Activityهاست؛ Raw Sessionها برای Audit دست‌نخورده می‌مانند.',
+                'Direct زمان مستقیم پروژه است و Bridge تداوم کوتاه همان پروژه در وقفه‌های حداکثر 120 ثانیه است. Bridge متقابل و هم‌زمان بین چند پروژه مجاز است.',
+                'بازسازی Projection فقط داده مشتق‌شده همان روز را دوباره محاسبه می‌کند و Activity خام را تغییر نمی‌دهد.',
+            ],
+        ],
         'worktracker.reports.index' => [
             'title' => 'راهنمای گزارش‌ها',
-            'body' => ['Effort جمع مستقل Activityهاست؛ در کار هم‌زمان ممکن است از Elapsed Coverage بیشتر باشد. این رفتار عمدی است.'],
+            'body' => [
+                'Effort گزارش از alpha.7.3 شامل Raw Effort + Continuity Bridge است و عمداً می‌تواند از Elapsed Coverage بیشتر باشد.',
+                'Bridge فقط به Project/Work Event نسبت داده می‌شود؛ Billing هنوز تا تکمیل Audit/Parity مالی از Raw Activityها استفاده می‌کند.',
+            ],
         ],
         'worktracker.invoices.index' => [
             'title' => 'راهنمای فاکتورها',

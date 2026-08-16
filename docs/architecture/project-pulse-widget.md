@@ -22,3 +22,14 @@ This keeps the widget live while preserving SQLite/API raw-session semantics.
 - can be restored from the main-window `ویجت فعالیت` button or System Tray;
 - docks near the right edge on first show;
 - remains topmost and can be dragged/resized.
+
+## Compact mode
+
+The widget can toggle between full and compact layouts without losing the three recent Project counters. Compact mode is a narrow 238×146 window that shows:
+
+- active/recent indicator;
+- Project name;
+- live credited duration;
+- one-line Effort + Concurrent summary.
+
+Returning to full mode restores the previous resizable width/height kept for the current process.

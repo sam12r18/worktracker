@@ -7,6 +7,7 @@ class WorkReportController extends Controller {
   [$from,$to]=match($preset){'day'=>[$today,$today->addDay()],'month'=>[$today->startOfMonth(),$today->addMonth()->startOfMonth()],'custom'=>[CarbonImmutable::parse((string)$request->query('from',$today->toDateString()),$tz)->startOfDay(),CarbonImmutable::parse((string)$request->query('to',$today->toDateString()),$tz)->addDay()->startOfDay()],default=>[$today->startOfWeek(),$today->startOfWeek()->addWeek()]};
   $projectId=$request->query('project_id');$report=$projectId?$reports->project($uid,(string)$projectId,$from,$to):$reports->range($uid,$from,$to);
   $sessions=$reports->sessions($uid,$from,$to,$projectId?:null);
-  return view('worktracker.reports.index',['report'=>$report,'sessions'=>$sessions,'projects'=>Project::where('user_id',$uid)->where('is_archived',false)->orderBy('name')->get(),'preset'=>$preset,'from'=>$from,'to'=>$to,'timezone'=>$tz,'projectId'=>$projectId]);
+  $workEvents=$reports->projectedEvents($uid,$from,$to,$projectId?:null);
+  return view('worktracker.reports.index',['report'=>$report,'sessions'=>$sessions,'workEvents'=>$workEvents,'projects'=>Project::where('user_id',$uid)->where('is_archived',false)->orderBy('name')->get(),'preset'=>$preset,'from'=>$from,'to'=>$to,'timezone'=>$tz,'projectId'=>$projectId]);
  }
 }

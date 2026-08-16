@@ -3,6 +3,7 @@
 use App\Http\Controllers\WorkTracker\BillingController;
 use App\Http\Controllers\WorkTracker\InvoiceController;
 use App\Http\Controllers\WorkTracker\WorkReportController;
+use App\Http\Controllers\WorkTracker\WorkEventController;
 use App\Http\Controllers\WorkTracker\ActivityHistoryController;
 use App\Http\Controllers\WorkTracker\CustomerManagementController;
 use App\Http\Controllers\WorkTracker\DiagnosticsController;
@@ -64,6 +65,8 @@ Route::middleware(['web', 'auth', RequireWorkTrackerHttps::class, EnsureWorkTrac
         Route::get('/audit', [ActivityHistoryController::class, 'audit'])->name('audit.index');
         Route::get('/diagnostics', [DiagnosticsController::class, 'index'])->name('diagnostics.index');
         Route::get('/reports', [WorkReportController::class, 'index'])->name('reports.index');
+        Route::get('/work-events', [WorkEventController::class, 'index'])->name('work-events.index');
+        Route::post('/work-events/rebuild', [WorkEventController::class, 'rebuild'])->name('work-events.rebuild');
 
         Route::get('/invoices', [InvoiceController::class, 'index'])->name('invoices.index');
         Route::post('/invoices/generate', [InvoiceController::class, 'generate'])->name('invoices.generate');

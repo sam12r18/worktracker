@@ -106,6 +106,27 @@ class ProjectManagementController extends Controller
             ->selectRaw('COUNT(*) as sessions_count, COALESCE(SUM(duration_seconds),0) as effort_seconds')
             ->first();
 
+        $recentRuleSamples = ActivitySession::query()
+            ->where('user_id', $userId)
+            ->whereNotNull('window_title')
+            ->where('window_title', '!=', '')
+            ->where('started_at', '>=', now()->subDays(7))
+            ->orderByDesc('started_at')
+            ->limit(300)
+            ->get(['window_title', 'process_name', 'executable_path', 'project_id'])
+            ->unique(fn ($row) => ($row->process_name ?? '') . '|' . ($row->executable_path ?? '') . '|' . $row->window_title . '|' . ($row->project_id ?? ''))
+            ->take(100)
+            ->values();
+
+        // Keep complex PHP expressions out of Blade @json directives. Blade's directive parser can
+        // misread nested arrow-function/array syntax and produce an "Unclosed '['" compiled-view error.
+        $recentRuleSamplesForJs = $recentRuleSamples->map(static fn ($row): array => [
+            'title' => $row->window_title,
+            'process' => $row->process_name,
+            'path' => $row->executable_path,
+            'project_id' => $row->project_id,
+        ])->values()->all();
+
         return view('worktracker.projects.show', [
             'project' => $project,
             'customers' => Customer::query()->where('user_id', $userId)->orderByDesc('is_active')->orderBy('name')->get(),
@@ -114,17 +135,9 @@ class ProjectManagementController extends Controller
             'pricingHistory' => DB::table('project_multiplier_history')->where('project_id', $project->id)->orderByDesc('effective_from')->limit(50)->get(),
             'pricingOverrides' => PricingOverride::query()->where('user_id', $userId)->where('project_id', $project->id)->with('activityType:id,name,code')->orderByDesc('effective_from')->get(),
             'activityStats' => $activityStats,
-            'recentRuleSamples' => ActivitySession::query()
-                ->where('user_id', $userId)
-                ->whereNotNull('window_title')
-                ->where('window_title', '!=', '')
-                ->where('started_at', '>=', now()->subDays(7))
-                ->orderByDesc('started_at')
-                ->limit(300)
-                ->get(['window_title', 'process_name', 'executable_path', 'project_id'])
-                ->unique(fn ($row) => ($row->process_name ?? '') . '|' . ($row->executable_path ?? '') . '|' . $row->window_title . '|' . ($row->project_id ?? ''))
-                ->take(100)
-                ->values(),
+            'recentRuleSamples' => $recentRuleSamples,
+            'recentRuleSamplesForJs' => $recentRuleSamplesForJs,
+            'projectHintsForJs' => collect([$project->code, $project->name])->filter()->values()->all(),
         ]);
     }
 
