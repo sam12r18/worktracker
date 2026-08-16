@@ -249,3 +249,12 @@ Do not:
 - Visual timelines must render overlaps; never collapse them into one bar.
 - New Laravel UI must use shared WorkTracker Blade components and remain usable at 360px width.
 - New WPF feature sections should be UserControls/ViewModels rather than expanding MainWindow indefinitely.
+
+## Activity Intelligence invariants (alpha.7.3+)
+- Project classification and Activity Type classification are separate decisions; never infer Activity Type merely because a Project matched.
+- A plain IDE process is not automatically Development. Use explicit IDE signals, configured Activity Type Rules, then the Project default; otherwise remain Unknown.
+- Explicit Debug/Test/Review signals must be conservative. Filenames containing words such as `Debug` are not sufficient evidence of an IDE mode.
+- Store Activity Type provenance independently as confidence, source, and reason. Manual correction is `user_override` with confidence 1.0.
+- At equal priority, Project-scoped Activity Type Rules outrank global Rules. Same-scope near-ties remain Unknown rather than guessing.
+- Activity Type Rule deactivation is a versioned disabled tombstone until the sync protocol gains generic deletion tombstones; do not physically delete it and strand stale rules on Agents.
+- Continuity Bridge remains independent per Project: mutual and multi-project bridges are valid and Effort may exceed Coverage substantially. Do not introduce a global anchor or normalize to wall-clock time.

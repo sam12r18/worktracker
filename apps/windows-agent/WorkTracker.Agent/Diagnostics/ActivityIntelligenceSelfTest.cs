@@ -1,5 +1,7 @@
+using WorkTracker.Agent.Classification;
 using WorkTracker.Agent.Domain;
 using WorkTracker.Agent.Services;
+using WorkTracker.Agent.Tracking;
 
 namespace WorkTracker.Agent.Diagnostics;
 
@@ -16,6 +18,14 @@ public static class ActivityIntelligenceSelfTest
         TestBridgeRearm(failures);
         TestLongGapDoesNotBridge(failures);
         TestUnobservedGapDoesNotBridge(failures);
+        TestActivityTypeProjectDefault(failures);
+        TestActivityTypeExplicitDebugOverridesDefault(failures);
+        TestExplicitSignalWithoutTaxonomyDoesNotFallBack(failures);
+        TestActivityTypeExplicitTestingOverridesDefault(failures);
+        TestDebugNamedSourceFileDoesNotTriggerDebugging(failures);
+        TestActivityTypeConfiguredRule(failures);
+        TestProjectScopedRuleWinsAtEqualPriority(failures);
+        TestActivityTypeAmbiguousRulesStayUnknown(failures);
         return failures;
     }
 
@@ -146,6 +156,99 @@ public static class ActivityIntelligenceSelfTest
         Expect(failures, a.Count == 2 && a.Sum(x => x.BridgeSeconds) == 0,
             "an unobserved foreground gap must not be credited as continuity");
     }
+
+
+    private static void TestActivityTypeProjectDefault(List<string> failures)
+    {
+        var resolver = new ActivityTypeResolver();
+        var types = Types();
+        var snapshot = Snapshot("phpstorm64", "Ketabnow – app.php");
+        var result = resolver.Resolve(snapshot, "A", "development", types, []);
+        Expect(failures, result is not null && result.ActivityTypeId == "development" && result.Source == "project_default" && Math.Abs(result.Confidence - 0.72) < 0.001,
+            "plain IDE work must use the configured Project default instead of a hard-coded Development guess");
+    }
+
+    private static void TestActivityTypeExplicitDebugOverridesDefault(List<string> failures)
+    {
+        var resolver = new ActivityTypeResolver();
+        var result = resolver.Resolve(Snapshot("phpstorm64", "WorkTracker Debugger"), "A", "development", Types(), []);
+        Expect(failures, result is not null && result.ActivityTypeId == "debugging" && result.Source == "ide_signal" && result.Confidence >= 0.98,
+            "an explicit IDE Debug signal must override a Development Project default");
+    }
+
+
+    private static void TestExplicitSignalWithoutTaxonomyDoesNotFallBack(List<string> failures)
+    {
+        var resolver = new ActivityTypeResolver();
+        var types = Types().Where(x => x.Id != "debugging").ToArray();
+        var result = resolver.Resolve(Snapshot("phpstorm64", "WorkTracker Debugger"), "A", "development", types, []);
+        Expect(failures, result is null,
+            "an explicit Debug signal without a Debugging taxonomy must remain Unknown instead of silently falling back to Development");
+    }
+
+    private static void TestActivityTypeExplicitTestingOverridesDefault(List<string> failures)
+    {
+        var resolver = new ActivityTypeResolver();
+        var result = resolver.Resolve(Snapshot("phpstorm64", "WorkTracker — PHPUnit Test Runner"), "A", "development", Types(), []);
+        Expect(failures, result is not null && result.ActivityTypeId == "testing" && result.Source == "ide_signal" && result.Confidence >= 0.96,
+            "an explicit PHPUnit/Test Runner signal must override a Development Project default");
+    }
+
+    private static void TestDebugNamedSourceFileDoesNotTriggerDebugging(List<string> failures)
+    {
+        var resolver = new ActivityTypeResolver();
+        var result = resolver.Resolve(Snapshot("phpstorm64", "Ketabnow – DebugService.php"), "A", "development", Types(), []);
+        Expect(failures, result is not null && result.ActivityTypeId == "development" && result.Source == "project_default",
+            "a source file containing the word Debug must not be treated as an explicit debugger signal");
+    }
+
+    private static void TestActivityTypeConfiguredRule(List<string> failures)
+    {
+        var resolver = new ActivityTypeResolver();
+        var rules = new[]
+        {
+            new ActivityTypeRule("r1", "A", "development", ActivityTypeRuleType.ProcessName, "equals", "phpstorm64", 80, 10, 0.91, true),
+        };
+        var result = resolver.Resolve(Snapshot("phpstorm64", "Ketabnow – app.php"), "A", null, Types(), rules);
+        Expect(failures, result is not null && result.ActivityTypeId == "development" && result.Source == "rule" && result.Confidence >= 0.79,
+            "a Project-scoped Activity Type Rule must classify matching IDE work");
+    }
+
+    private static void TestProjectScopedRuleWinsAtEqualPriority(List<string> failures)
+    {
+        var resolver = new ActivityTypeResolver();
+        var rules = new[]
+        {
+            new ActivityTypeRule("g1", null, "development", ActivityTypeRuleType.ProcessName, "equals", "phpstorm64", 80, 0, 0.90, true),
+            new ActivityTypeRule("p1", "A", "review", ActivityTypeRuleType.ProcessName, "equals", "phpstorm64", 80, 0, 0.93, true),
+        };
+        var result = resolver.Resolve(Snapshot("phpstorm64", "Ketabnow – app.php"), "A", null, Types(), rules);
+        Expect(failures, result is not null && result.ActivityTypeId == "review" && result.Source == "rule",
+            "a Project-scoped rule must outrank an equally-prioritized global rule because its scope is more specific");
+    }
+
+    private static void TestActivityTypeAmbiguousRulesStayUnknown(List<string> failures)
+    {
+        var resolver = new ActivityTypeResolver();
+        var rules = new[]
+        {
+            new ActivityTypeRule("r1", null, "development", ActivityTypeRuleType.ProcessName, "equals", "phpstorm64", 60, 0, 0.90, true),
+            new ActivityTypeRule("r2", null, "review", ActivityTypeRuleType.ProcessName, "equals", "phpstorm64", 55, 0, 0.90, true),
+        };
+        var result = resolver.Resolve(Snapshot("phpstorm64", "Ketabnow – app.php"), "A", null, Types(), rules);
+        Expect(failures, result is null, "two close Activity Type candidates with the same priority must remain Unknown");
+    }
+
+    private static IReadOnlyList<ActivityType> Types() => new[]
+    {
+        new ActivityType("development", "development", "Development", true, 0, "IRT", true),
+        new ActivityType("debugging", "debugging", "Debugging", true, 0, "IRT", true),
+        new ActivityType("testing", "testing", "Testing", true, 0, "IRT", true),
+        new ActivityType("review", "review", "Code Review", true, 0, "IRT", true),
+    };
+
+    private static ForegroundSnapshot Snapshot(string process, string title)
+        => new(0, 1, process, null, title, DateTimeOffset.UtcNow);
 
     private static ActivitySession S(string id, string projectId, int startSeconds, int endSeconds, string process = "app", string? title = null)
     {

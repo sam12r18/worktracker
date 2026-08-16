@@ -79,7 +79,7 @@ final class SyncConflictService
             $m=Project::query()->whereKey($id)->where('user_id',$userId)->first();
             return $m ? [
                 'parent_id'=>$m->parent_id,'name'=>$m->name,'code'=>$m->code,'status'=>$m->status,
-                'color'=>$m->color,'is_archived'=>(bool)$m->is_archived,'customer_id'=>$m->customer_id,'rate_multiplier'=>(float)$m->rate_multiplier,'is_billable_default'=>(bool)$m->is_billable_default,
+                'color'=>$m->color,'is_archived'=>(bool)$m->is_archived,'customer_id'=>$m->customer_id,'rate_multiplier'=>(float)$m->rate_multiplier,'is_billable_default'=>(bool)$m->is_billable_default,'default_activity_type_id'=>$m->default_activity_type_id,
             ] : null;
         }
         if ($entity === 'project_rule') {
@@ -93,7 +93,7 @@ final class SyncConflictService
             $m=ActivitySession::query()->whereKey($id)->where('user_id',$userId)->first();
             return $m ? collect($m->toArray())->only([
                 'device_id','project_id','task_id','activity_type_id','is_billable','source','process_name','executable_path','window_title',
-                'classification_confidence','classification_reason','started_at','ended_at','duration_seconds',
+                'classification_confidence','classification_reason','activity_type_confidence','activity_type_source','activity_type_reason','started_at','ended_at','duration_seconds',
                 'idle_seconds','note','is_billable','created_at_device','updated_at_device'
             ])->all() : null;
         }
@@ -107,7 +107,7 @@ final class SyncConflictService
             $m=Project::query()->whereKey($conflict->entity_id)->where('user_id',$conflict->user_id)->lockForUpdate()->firstOrFail();
             if (!empty($payload['parent_id'])) Project::query()->whereKey($payload['parent_id'])->where('user_id',$conflict->user_id)->firstOrFail();
             $newVersion=max((int)$m->version,(int)$conflict->client_version)+1;
-            $m->fill(collect($payload)->only(['parent_id','name','code','status','color','is_archived'])->all());
+            $m->fill(collect($payload)->only(['parent_id','name','code','status','color','is_archived','default_activity_type_id'])->all());
             $m->version=$newVersion; $m->save(); return $newVersion;
         }
         if ($conflict->entity_type === 'project_rule') {

@@ -21,12 +21,12 @@ namespace WorkTracker.Agent;
 
 public partial class MainWindow : Window
 {
-    private readonly string _deviceId; private readonly TrackingEngine _tracking; private readonly ManualTimerService _manualTimer; private readonly ActivitySessionRepository _repository; private readonly ProjectRepository _projects; private readonly ActivityTypeRepository _activityTypes; private readonly ActivityCorrectionService _corrections; private readonly SyncEngine _sync; private readonly SyncSettingsStore _syncSettings; private readonly SyncOutboxRepository _syncOutbox; private readonly DispatcherTimer _uiTimer; private bool _allowClose; private string? _lastBridgeSignature; private string? _lastAggregationDecisionSignature;
+    private readonly string _deviceId; private readonly TrackingEngine _tracking; private readonly ManualTimerService _manualTimer; private readonly ActivitySessionRepository _repository; private readonly ProjectRepository _projects; private readonly ActivityTypeRepository _activityTypes; private readonly ActivityTypeRuleRepository _activityTypeRules; private readonly ActivityCorrectionService _corrections; private readonly SyncEngine _sync; private readonly SyncSettingsStore _syncSettings; private readonly SyncOutboxRepository _syncOutbox; private readonly DispatcherTimer _uiTimer; private bool _allowClose; private string? _lastBridgeSignature; private string? _lastAggregationDecisionSignature;
     public event EventHandler? HideRequested; public event EventHandler? ExitRequested; public event EventHandler? WidgetRequested;
 
-    public MainWindow(TrackingEngine tracking, ManualTimerService manualTimer, ActivitySessionRepository repository, ProjectRepository projects, ActivityTypeRepository activityTypes, ActivityCorrectionService corrections, SyncEngine sync, SyncSettingsStore syncSettings, SyncOutboxRepository syncOutbox, string deviceId)
+    public MainWindow(TrackingEngine tracking, ManualTimerService manualTimer, ActivitySessionRepository repository, ProjectRepository projects, ActivityTypeRepository activityTypes, ActivityTypeRuleRepository activityTypeRules, ActivityCorrectionService corrections, SyncEngine sync, SyncSettingsStore syncSettings, SyncOutboxRepository syncOutbox, string deviceId)
     {
-        InitializeComponent(); _deviceId=deviceId; _tracking=tracking;_manualTimer=manualTimer;_repository=repository;_projects=projects;_activityTypes=activityTypes;_corrections=corrections;_sync=sync;_syncSettings=syncSettings;_syncOutbox=syncOutbox;
+        InitializeComponent(); _deviceId=deviceId; _tracking=tracking;_manualTimer=manualTimer;_repository=repository;_projects=projects;_activityTypes=activityTypes;_activityTypeRules=activityTypeRules;_corrections=corrections;_sync=sync;_syncSettings=syncSettings;_syncOutbox=syncOutbox;
         SourceInitialized += (_, _) => ApplyDarkWindowChrome();
         DeviceText.Text=$"دستگاه: {Environment.MachineName} · {deviceId[..Math.Min(10,deviceId.Length)]}";
         _sync.StatusChanged+=(_,status)=>Dispatcher.Invoke(()=>UpdateSyncStatus(status)); _tracking.StateChanged+=(_,_)=>Dispatcher.Invoke(UpdateTrackingState); _tracking.ForegroundChanged+=(_,snapshot)=>Dispatcher.Invoke(()=>{TodaySummary.CurrentActivity=snapshot?.WindowTitle??"بدون فعالیت فعال";TodaySummary.CurrentProcess=snapshot?.ProcessName??"-";}); _tracking.SessionSaved+=async(_,_)=>await Dispatcher.InvokeAsync(RefreshAsync);
@@ -47,6 +47,7 @@ public partial class MainWindow : Window
             var projects = await _projects.GetActiveAsync();
             var map = projects.ToDictionary(x => x.Id, x => x.Name);
             var activityTypes = await _activityTypes.GetActiveAsync();
+            var activityTypeRules = await _activityTypeRules.GetEnabledAsync();
             var typeMap = activityTypes.ToDictionary(x => x.Id, x => x.Name);
 
             var manualSelected = ManualProjectCombo.SelectedValue as string;
@@ -62,7 +63,7 @@ public partial class MainWindow : Window
             TimelineActivityTypeCombo.ItemsSource = activityTypes;
             UnknownProjectCombo.ItemsSource = projects;
             AssignedProjectCombo.ItemsSource = projects;
-            LocalConfigText.Text = $"پروژه محلی: {projects.Count} · نوع فعالیت: {activityTypes.Count}";
+            LocalConfigText.Text = $"پروژه محلی: {projects.Count} · نوع فعالیت: {activityTypes.Count} · Rule نوع فعالیت: {activityTypeRules.Count}";
 
             if (manualSelected is not null) ManualProjectCombo.SelectedValue = manualSelected;
             if (manualTypeSelected is not null) ManualActivityTypeCombo.SelectedValue = manualTypeSelected;

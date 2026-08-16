@@ -5,6 +5,7 @@ use App\Http\Controllers\WorkTracker\InvoiceController;
 use App\Http\Controllers\WorkTracker\WorkReportController;
 use App\Http\Controllers\WorkTracker\WorkEventController;
 use App\Http\Controllers\WorkTracker\ActivityHistoryController;
+use App\Http\Controllers\WorkTracker\ActivityIntelligenceController;
 use App\Http\Controllers\WorkTracker\CustomerManagementController;
 use App\Http\Controllers\WorkTracker\DiagnosticsController;
 use App\Http\Controllers\WorkTracker\ProjectManagementController;
@@ -59,6 +60,11 @@ Route::middleware(['web', 'auth', RequireWorkTrackerHttps::class, EnsureWorkTrac
         Route::post('/billing/overrides', [BillingController::class, 'storeOverride'])->name('billing.overrides.store');
         Route::post('/billing/overrides/{override}', [BillingController::class, 'updateOverride'])->name('billing.overrides.update');
         Route::post('/billing/overrides/{override}/expire', [BillingController::class, 'expireOverride'])->name('billing.overrides.expire');
+
+        Route::get('/activity-intelligence', [ActivityIntelligenceController::class, 'index'])->name('activity-intelligence.index');
+        Route::post('/activity-intelligence/rules', [ActivityIntelligenceController::class, 'store'])->name('activity-intelligence.rules.store');
+        Route::post('/activity-intelligence/rules/{rule}', [ActivityIntelligenceController::class, 'update'])->name('activity-intelligence.rules.update');
+        Route::delete('/activity-intelligence/rules/{rule}', [ActivityIntelligenceController::class, 'destroy'])->name('activity-intelligence.rules.destroy');
 
         Route::get('/activities', [ActivityHistoryController::class, 'index'])->name('activities.index');
         Route::post('/activities/{activity}', [ActivityHistoryController::class, 'update'])->name('activities.update');

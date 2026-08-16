@@ -39,7 +39,11 @@ public sealed class LocalDatabase
         await EnsureColumnAsync(connection, "projects", "customer_id", "TEXT NULL", cancellationToken);
         await EnsureColumnAsync(connection, "projects", "rate_multiplier", "REAL NOT NULL DEFAULT 1.0", cancellationToken);
         await EnsureColumnAsync(connection, "projects", "is_billable_default", "INTEGER NOT NULL DEFAULT 1", cancellationToken);
+        await EnsureColumnAsync(connection, "projects", "default_activity_type_id", "TEXT NULL", cancellationToken);
         await EnsureColumnAsync(connection, "activity_sessions", "activity_type_id", "TEXT NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "activity_sessions", "activity_type_confidence", "REAL NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "activity_sessions", "activity_type_source", "TEXT NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "activity_sessions", "activity_type_reason", "TEXT NULL", cancellationToken);
         await EnsureColumnAsync(connection, "activity_sessions", "is_billable", "INTEGER NULL", cancellationToken);
     }
 

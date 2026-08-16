@@ -2,7 +2,7 @@
 
 ## ساختار
 - `apps/api/` — Laravel 12 کامل و مستقل (نه overlay)
-- `apps/windows-agent/WorkTracker.Agent/` — برنامه WPF ویندوز با Work Event Aggregation و ویجت Project Pulse
+- `apps/windows-agent/WorkTracker.Agent/` — برنامه WPF ویندوز با Work Event Aggregation، Activity Type Intelligence و ویجت Project Pulse
 - `tools/build-windows-agent.ps1` — Build ویندوز
 - `docs/` — مستندات پروژه
 
@@ -21,6 +21,7 @@ php artisan serve
 Health مستقیم: `http://127.0.0.1:8000/worktracker/health`
 Login: `http://127.0.0.1:8000/login`
 Dashboard: `http://127.0.0.1:8000/worktracker`
+Activity Type Intelligence: `http://127.0.0.1:8000/worktracker/activity-intelligence`
 
 ## Build ویندوز
 ```powershell

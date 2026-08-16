@@ -11,6 +11,7 @@
 <x-worktracker.page-header :title="$project->name" :subtitle="'کد: '.($project->code ?: '—').' · نسخه Sync: '.$project->version">
     <x-slot:actions>
         <a class="wt-btn" href="{{ route('worktracker.projects.index') }}">همه پروژه‌ها</a>
+        <a class="wt-btn" href="{{ route('worktracker.activity-intelligence.index') }}">هوشمندی فعالیت</a>
         @if($project->customer)<a class="wt-btn" href="{{ route('worktracker.customers.show',$project->customer) }}">{{ $project->customer->name }}</a>@endif
     </x-slot:actions>
 </x-worktracker.page-header>
@@ -32,6 +33,7 @@
             <label>پروژه والد<select name="parent_id"><option value="">ریشه</option>@foreach($parents as $p)<option value="{{ $p->id }}" @selected(old('parent_id',$project->parent_id)===$p->id)>{{ $p->name }}</option>@endforeach</select></label>
             <label>وضعیت<select name="status">@foreach($statusLabels as $value=>$label)<option value="{{ $value }}" @selected(old('status',$project->status)===$value)>{{ $label }}</option>@endforeach</select></label>
             <label>رنگ<input type="color" name="color" value="{{ old('color',$project->color ?: '#4d7fff') }}"></label>
+            <label><span class="wt-help-inline-title">نوع فعالیت پیش‌فرض<x-worktracker.help title="نوع فعالیت پیش‌فرض پروژه"><p>این مقدار Fallback است؛ سیگنال‌های صریح IDE و Ruleهای نوع فعالیت اولویت بالاتری دارند. برای PhpStorm می‌توان Development را پیش‌فرض گذاشت و Debugging/Testing به‌صورت دقیق‌تر override شوند.</p></x-worktracker.help></span><select name="default_activity_type_id"><option value="">بدون پیش‌فرض</option>@foreach($activityTypes as $type)<option value="{{ $type->id }}" @selected(old('default_activity_type_id',$project->default_activity_type_id)===$type->id)>{{ $type->name }}</option>@endforeach</select></label>
             <label>
                 <span class="wt-help-inline-title">ضریب پروژه
                     <x-worktracker.help title="ضریب پروژه و سابقه مالی"><p>تغییر این مقدار فقط از «شروع اعتبار» روی قیمت‌گذاری تاریخی اثر می‌گذارد. WorkTracker یک رکورد History جدید ثبت می‌کند.</p></x-worktracker.help>

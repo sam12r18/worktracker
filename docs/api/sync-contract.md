@@ -143,3 +143,33 @@ Agent queue diagnostics distinguish:
 - `NextRetryAt`: earliest scheduled retry.
 
 The UI action **تلاش مجدد صف** clears only `next_attempt_at`; it does not delete the outbox row, reset captured activity, or remove the last error/attempt history.
+
+
+## Activity Type Intelligence configuration (alpha.7.3 P1)
+
+The server can pull four configuration entity families to a Windows Agent:
+
+- `project` — now also carries `default_activity_type_id`.
+- `project_rule` — identifies the Project.
+- `activity_type` — billing/activity taxonomy.
+- `activity_type_rule` — identifies the Activity Type after Project classification.
+
+`activity_type_rule` is server-authored in this phase and is pull-only. Its payload contains:
+
+```json
+{
+  "project_id": "optional-project-id",
+  "activity_type_id": "uuid",
+  "rule_type": "ProcessName|WindowTitle|ExecutablePath|ContextKey|Keyword",
+  "operator": "contains|equals|starts_with|ends_with|regex",
+  "pattern": "phpstorm64",
+  "weight": 80,
+  "priority": 0,
+  "confidence": 0.9,
+  "is_enabled": true
+}
+```
+
+Activity sessions may include `activity_type_confidence`, `activity_type_source`, and `activity_type_reason`. These fields describe **why** a type was selected and must not be confused with Project classification confidence. Manual type correction uses `activity_type_source=user_override` and confidence `1.0`.
+
+Because the cursor protocol does not yet have generic delete tombstones, deleting an Activity Type Rule in the Web UI is represented as `is_enabled=false` with an incremented version.

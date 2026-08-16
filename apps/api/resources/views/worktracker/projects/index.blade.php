@@ -20,7 +20,7 @@
             </form>
 
             <x-worktracker.table>
-                <thead><tr><th>پروژه</th><th>مشتری</th><th>ساختار</th><th>Rule</th><th>Task</th><th>ضریب</th><th>وضعیت</th></tr></thead>
+                <thead><tr><th>پروژه</th><th>مشتری</th><th>ساختار</th><th>Rule</th><th>Task</th><th>نوع پیش‌فرض</th><th>ضریب</th><th>وضعیت</th></tr></thead>
                 <tbody>
                 @forelse($projects as $p)
                     <tr>
@@ -29,11 +29,12 @@
                         <td>{{ $p->parent?->name ?: 'ریشه' }}</td>
                         <td>{{ $p->rules_count }}</td>
                         <td>{{ $p->tasks_count }}</td>
+                        <td>{{ $p->defaultActivityType?->name ?: '—' }}</td>
                         <td>{{ $p->rate_multiplier }}</td>
                         <td>@if($p->is_archived)<x-worktracker.badge tone="danger">آرشیو</x-worktracker.badge>@elseif($p->status==='completed')<x-worktracker.badge tone="success">تکمیل</x-worktracker.badge>@elseif($p->status==='paused')<x-worktracker.badge tone="warning">متوقف</x-worktracker.badge>@else<x-worktracker.badge tone="primary">فعال</x-worktracker.badge>@endif</td>
                     </tr>
                 @empty
-                    <tr><td colspan="7"><x-worktracker.empty title="پروژه‌ای پیدا نشد"/></td></tr>
+                    <tr><td colspan="8"><x-worktracker.empty title="پروژه‌ای پیدا نشد"/></td></tr>
                 @endforelse
                 </tbody>
             </x-worktracker.table>
@@ -56,6 +57,7 @@
                 <label>پروژه والد<select name="parent_id"><option value="">پروژه ریشه</option>@foreach($parents as $p)<option value="{{ $p->id }}">{{ $p->name }}</option>@endforeach</select></label>
                 <label>وضعیت<select name="status"><option value="active">فعال</option><option value="paused">متوقف</option><option value="completed">تکمیل‌شده</option></select></label>
                 <label>رنگ<input name="color" type="color" value="{{ old('color','#4d7fff') }}"></label>
+                <label><span class="wt-help-inline-title">نوع فعالیت پیش‌فرض<x-worktracker.help title="نوع فعالیت پیش‌فرض پروژه"><p>اگر Rule یا سیگنال صریح Debug/Test وجود نداشته باشد، Agent از این نوع استفاده می‌کند. برای پروژه‌های برنامه‌نویسی معمولاً Development انتخاب مناسبی است.</p></x-worktracker.help></span><select name="default_activity_type_id"><option value="">بدون پیش‌فرض</option>@foreach($activityTypes as $type)<option value="{{ $type->id }}" @selected(old('default_activity_type_id')===$type->id)>{{ $type->name }}</option>@endforeach</select></label>
                 <label>
                     <span class="wt-help-inline-title">ضریب پروژه
                         <x-worktracker.help title="ضریب پروژه"><p>نرخ پایه × ضریب مشتری × ضریب پروژه. مقدار 1.0000 یعنی پروژه نرخ را تغییر نمی‌دهد.</p></x-worktracker.help>

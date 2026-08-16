@@ -69,8 +69,9 @@ public partial class App : System.Windows.Application
             var repository = new ActivitySessionRepository(database);
             var projects = new ProjectRepository(database);
             var activityTypes = new ActivityTypeRepository(database);
+            var activityTypeRules = new ActivityTypeRuleRepository(database);
             var classifier = new ProjectClassificationService(projects);
-            var activityTypeInference = new ActivityTypeInferenceService(activityTypes);
+            var activityTypeInference = new ActivityTypeInferenceService(activityTypes, activityTypeRules, projects);
             var corrections = new ActivityCorrectionService(repository, classifier);
             var syncSettings = new SyncSettingsStore(database);
             // Apply one-time sync protocol migrations (including checkpoint reset) before
@@ -105,6 +106,7 @@ public partial class App : System.Windows.Application
                 repository,
                 projects,
                 activityTypes,
+                activityTypeRules,
                 corrections,
                 _sync,
                 syncSettings,

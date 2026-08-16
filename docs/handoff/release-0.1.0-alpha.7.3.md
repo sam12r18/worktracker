@@ -32,3 +32,13 @@
 ## Important boundary
 
 Continuity Bridge is derived on both Windows and Laravel, while raw sessions remain the sync source of truth. Server reports may show the derived credit and the dedicated Bridge audit rows. Final invoice calculation still uses raw Activity Sessions; Bridge billing remains deliberately disabled until immutable financial snapshot/parity tests are completed.
+
+## P1 — Activity Type Intelligence
+
+- Added a Project-level default Activity Type as a conservative fallback.
+- Added server-managed global and Project-scoped Activity Type Rules and sync to Windows Agent.
+- Added separate Activity Type decision provenance (`confidence`, `source`, `reason`) on raw Activity Sessions.
+- Added conservative explicit IDE signals for Debugging, Testing and Code Review. Generic filenames containing words such as `Debug` are intentionally not treated as debugger state.
+- Added Activity Type diagnostics/logging and deterministic Agent self-tests.
+- Manual Activity Type correction is recorded as `user_override` with confidence 1.0.
+- Rule removal is represented as a disabled versioned row until generic sync tombstones exist.

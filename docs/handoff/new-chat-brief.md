@@ -17,11 +17,12 @@ Key invariants:
 - Windows remains offline-first and a Windows user may run only one WorkTracker Agent instance at a time.
 - Device Token is least-privilege, bound to its Device UUID and cannot author Billing configuration.
 - Project Rule type/operator semantics must match on Laravel and Windows. Canonical rule types are `Path`, `WindowTitle`, `ProcessName`, `ExecutablePath`, `Keyword`; operators are `contains`, `equals`, `starts_with`, `ends_with`, `regex`.
+- Project classification and Activity Type classification are separate. Activity Type precedence is explicit IDE signal → Activity Type Rule → Project default → Unknown; manual correction is `user_override` with confidence 1.0.
 - Billing uses historical rate/multiplier values effective at Activity time.
 - Final invoices snapshot pricing and are immutable through application services.
 - Laravel WorkTracker pages use the shared contextual Help system; do not duplicate modal implementations in individual pages.
 - Do not aggressively minify Blade source. Keep directives/components on structurally safe readable lines.
 
-Current admin surfaces include Projects, Customers, Project Rules, project Tasks, Billing/rate history/overrides, API & Token, Devices, Activities, Reports, Audit, Invoices and Conflicts.
+Current admin surfaces include Projects, Customers, Project Rules, Activity Type Intelligence, project Tasks, Billing/rate history/overrides, API & Token, Devices, Activities, Reports, Work Events, Audit, Invoices and Conflicts.
 
 Immediate smoke test: migrate/clear cache, open `/worktracker/projects`, `/worktracker/customers`, `/worktracker/access-tokens`, build the Windows Agent, create a Device Token from the Agent UUID, then verify register + sync.

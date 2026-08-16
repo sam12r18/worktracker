@@ -72,6 +72,12 @@
                                     {{ $segment->started_at->timezone($timezone)->format('H:i:s') }}–{{ $segment->ended_at->timezone($timezone)->format('H:i:s') }} ·
                                     {{ $segment->activitySession?->process_name ?: $segment->activitySession?->source }} ·
                                     {{ \Illuminate\Support\Str::limit($segment->activitySession?->window_title,80) }}
+                                    @if($segment->activitySession?->activityType)
+                                        · {{ $segment->activitySession->activityType->name }}
+                                        @if($segment->activitySession->activity_type_source)
+                                            <span class="wt-badge">{{ $segment->activitySession->activity_type_source }} {{ $segment->activitySession->activity_type_confidence !== null ? number_format((float)$segment->activitySession->activity_type_confidence,2) : '' }}</span>
+                                        @endif
+                                    @endif
                                 </div>
                             @endforeach
                             @foreach($event->bridges as $bridge)

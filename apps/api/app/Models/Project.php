@@ -13,7 +13,7 @@ class Project extends Model
 
     protected $fillable = [
         'parent_id','name','code','status','color','is_archived','version',
-        'customer_id','rate_multiplier','is_billable_default',
+        'customer_id','rate_multiplier','is_billable_default','default_activity_type_id',
     ];
 
     protected $casts = [
@@ -29,4 +29,5 @@ class Project extends Model
     public function rules(): HasMany { return $this->hasMany(ProjectRule::class); }
     public function tasks(): HasMany { return $this->hasMany(Task::class); }
     public function customer(): BelongsTo { return $this->belongsTo(Customer::class); }
+    public function defaultActivityType(): BelongsTo { return $this->belongsTo(ActivityType::class, 'default_activity_type_id'); }
 }

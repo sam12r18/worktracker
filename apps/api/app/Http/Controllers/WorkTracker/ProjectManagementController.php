@@ -5,6 +5,7 @@ namespace App\Http\Controllers\WorkTracker;
 use App\Http\Controllers\Controller;
 use App\Models\ActivitySession;
 use App\Models\Customer;
+use App\Models\ActivityType;
 use App\Models\PricingOverride;
 use App\Models\Project;
 use App\Models\Task;
@@ -21,7 +22,7 @@ class ProjectManagementController extends Controller
         $userId = $request->user()->getKey();
         $query = Project::query()
             ->where('user_id', $userId)
-            ->with(['customer:id,name,company_name', 'parent:id,name'])
+            ->with(['customer:id,name,company_name', 'parent:id,name', 'defaultActivityType:id,name,code'])
             ->withCount(['rules', 'tasks']);
 
         if ($search = trim((string) $request->query('q'))) {
@@ -49,6 +50,7 @@ class ProjectManagementController extends Controller
             'projects' => $query->orderBy('name')->paginate(40)->withQueryString(),
             'customers' => Customer::query()->where('user_id', $userId)->orderBy('name')->get(),
             'parents' => Project::query()->where('user_id', $userId)->where('is_archived', false)->orderBy('name')->get(),
+            'activityTypes' => ActivityType::query()->where(fn ($q) => $q->whereNull('user_id')->orWhere('user_id', $userId))->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(),
             'filters' => ['q' => $search ?? '', 'status' => $status, 'customer_id' => (string) $request->query('customer_id', '')],
         ]);
     }
@@ -88,6 +90,7 @@ class ProjectManagementController extends Controller
         $project->load([
             'customer:id,name,company_name,currency,rate_multiplier,is_active',
             'parent:id,name',
+            'defaultActivityType:id,name,code',
             'rules' => fn ($q) => $q->orderByDesc('is_enabled')->orderByDesc('priority')->orderByDesc('weight'),
         ]);
 
@@ -131,6 +134,7 @@ class ProjectManagementController extends Controller
             'project' => $project,
             'customers' => Customer::query()->where('user_id', $userId)->orderByDesc('is_active')->orderBy('name')->get(),
             'parents' => Project::query()->where('user_id', $userId)->where('id', '!=', $project->id)->where('is_archived', false)->orderBy('name')->get(),
+            'activityTypes' => ActivityType::query()->where(fn ($q) => $q->whereNull('user_id')->orWhere('user_id', $userId))->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(),
             'tasks' => $tasks,
             'pricingHistory' => DB::table('project_multiplier_history')->where('project_id', $project->id)->orderByDesc('effective_from')->limit(50)->get(),
             'pricingOverrides' => PricingOverride::query()->where('user_id', $userId)->where('project_id', $project->id)->with('activityType:id,name,code')->orderByDesc('effective_from')->get(),
@@ -218,6 +222,7 @@ class ProjectManagementController extends Controller
             'color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'rate_multiplier' => [$required, 'numeric', 'min:0', 'max:100'],
             'is_billable_default' => ['nullable', 'boolean'],
+            'default_activity_type_id' => ['nullable', 'uuid', Rule::exists('activity_types', 'id')->where(fn ($q) => $q->whereNull('user_id')->orWhere('user_id', $userId))],
             'is_archived' => ['nullable', 'boolean'],
             'effective_from' => ['nullable', 'date'],
         ]);

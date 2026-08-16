@@ -6,4 +6,7 @@ public sealed record LiveActivitySnapshot(
     string? ActivityTypeId,
     double? ClassificationConfidence,
     string? ClassificationReason,
-    DateTimeOffset StartedAt);
+    DateTimeOffset StartedAt,
+    double? ActivityTypeConfidence = null,
+    string? ActivityTypeReason = null,
+    string? ActivityTypeSource = null);

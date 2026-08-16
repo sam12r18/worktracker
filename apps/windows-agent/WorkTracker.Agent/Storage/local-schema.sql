@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS projects (
     updated_at TEXT NOT NULL,
     customer_id TEXT NULL,
     rate_multiplier REAL NOT NULL DEFAULT 1.0,
-    is_billable_default INTEGER NOT NULL DEFAULT 1
+    is_billable_default INTEGER NOT NULL DEFAULT 1,
+    default_activity_type_id TEXT NULL
 );
 
 CREATE TABLE IF NOT EXISTS project_rules (
@@ -42,6 +43,9 @@ CREATE TABLE IF NOT EXISTS activity_sessions (
     project_id TEXT NULL,
     task_id TEXT NULL,
     activity_type_id TEXT NULL,
+    activity_type_confidence REAL NULL,
+    activity_type_source TEXT NULL,
+    activity_type_reason TEXT NULL,
     is_billable INTEGER NULL,
     source TEXT NOT NULL,
     process_name TEXT NULL,
@@ -106,3 +110,21 @@ CREATE TABLE IF NOT EXISTS activity_types (
     updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_activity_types_active ON activity_types(is_active, sort_order, name);
+
+
+CREATE TABLE IF NOT EXISTS activity_type_rules (
+    id TEXT PRIMARY KEY,
+    project_id TEXT NULL,
+    activity_type_id TEXT NOT NULL,
+    rule_type TEXT NOT NULL,
+    operator TEXT NOT NULL DEFAULT 'contains',
+    pattern TEXT NOT NULL,
+    weight INTEGER NOT NULL DEFAULT 80,
+    priority INTEGER NOT NULL DEFAULT 0,
+    confidence REAL NOT NULL DEFAULT 0.9,
+    is_enabled INTEGER NOT NULL DEFAULT 1,
+    version INTEGER NOT NULL DEFAULT 1,
+    updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_activity_type_rules_resolution ON activity_type_rules(is_enabled,priority,weight);
+CREATE INDEX IF NOT EXISTS idx_activity_type_rules_project ON activity_type_rules(project_id,is_enabled);

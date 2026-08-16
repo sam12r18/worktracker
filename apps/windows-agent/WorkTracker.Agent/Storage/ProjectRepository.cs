@@ -11,14 +11,30 @@ public sealed class ProjectRepository(LocalDatabase database)
         await using var connection = database.OpenConnection();
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = """
-            SELECT id,name,code,parent_id,status,updated_at,customer_id,rate_multiplier,is_billable_default
+            SELECT id,name,code,parent_id,status,updated_at,customer_id,rate_multiplier,is_billable_default,default_activity_type_id
             FROM projects WHERE status='active' ORDER BY name COLLATE NOCASE
             """;
         var result = new List<Project>();
         await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
         while (await reader.ReadAsync(cancellationToken))
-            result.Add(new Project(reader.GetString(0), reader.GetString(1), reader.IsDBNull(2)?null:reader.GetString(2), reader.IsDBNull(3)?null:reader.GetString(3), reader.GetString(4), DateTimeOffset.Parse(reader.GetString(5)), reader.IsDBNull(6)?null:reader.GetString(6), Convert.ToDecimal(reader.GetDouble(7)), reader.GetInt32(8)==1));
+            result.Add(new Project(reader.GetString(0), reader.GetString(1), reader.IsDBNull(2)?null:reader.GetString(2), reader.IsDBNull(3)?null:reader.GetString(3), reader.GetString(4), DateTimeOffset.Parse(reader.GetString(5)), reader.IsDBNull(6)?null:reader.GetString(6), Convert.ToDecimal(reader.GetDouble(7)), reader.GetInt32(8)==1, reader.IsDBNull(9)?null:reader.GetString(9)));
         return result;
+    }
+
+
+    public async Task<Project?> GetByIdAsync(string projectId, CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(projectId)) return null;
+        await using var connection = database.OpenConnection();
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = """
+            SELECT id,name,code,parent_id,status,updated_at,customer_id,rate_multiplier,is_billable_default,default_activity_type_id
+            FROM projects WHERE id=$id LIMIT 1;
+            """;
+        cmd.Parameters.AddWithValue("$id", projectId);
+        await using var reader = await cmd.ExecuteReaderAsync(cancellationToken);
+        if (!await reader.ReadAsync(cancellationToken)) return null;
+        return new Project(reader.GetString(0), reader.GetString(1), reader.IsDBNull(2)?null:reader.GetString(2), reader.IsDBNull(3)?null:reader.GetString(3), reader.GetString(4), DateTimeOffset.Parse(reader.GetString(5)), reader.IsDBNull(6)?null:reader.GetString(6), Convert.ToDecimal(reader.GetDouble(7)), reader.GetInt32(8)==1, reader.IsDBNull(9)?null:reader.GetString(9));
     }
 
     public async Task<Project> CreateAsync(string name, string? code = null, string? parentId = null, CancellationToken cancellationToken = default)
@@ -30,12 +46,12 @@ public sealed class ProjectRepository(LocalDatabase database)
         await using var cmd = connection.CreateCommand();
         cmd.Transaction = (SqliteTransaction)tx;
         cmd.CommandText = """
-            INSERT INTO projects(id,name,code,parent_id,status,updated_at,customer_id,rate_multiplier,is_billable_default)
-            VALUES($id,$name,$code,$parent,'active',$updated,NULL,1.0,1)
+            INSERT INTO projects(id,name,code,parent_id,status,updated_at,customer_id,rate_multiplier,is_billable_default,default_activity_type_id)
+            VALUES($id,$name,$code,$parent,'active',$updated,NULL,1.0,1,NULL)
             """;
         cmd.Parameters.AddWithValue("$id", project.Id); cmd.Parameters.AddWithValue("$name", project.Name); cmd.Parameters.AddWithValue("$code", (object?)project.Code ?? DBNull.Value); cmd.Parameters.AddWithValue("$parent", (object?)project.ParentId ?? DBNull.Value); cmd.Parameters.AddWithValue("$updated", project.UpdatedAt!.Value.ToString("O"));
         await cmd.ExecuteNonQueryAsync(cancellationToken);
-        await InsertOutboxAsync(connection, (SqliteTransaction)tx, "project", project.Id, new { id=project.Id, name=project.Name, code=project.Code, parent_id=project.ParentId, status=project.Status, customer_id=(string?)null, rate_multiplier=1.0, is_billable_default=true, version=1 }, cancellationToken);
+        await InsertOutboxAsync(connection, (SqliteTransaction)tx, "project", project.Id, new { id=project.Id, name=project.Name, code=project.Code, parent_id=project.ParentId, status=project.Status, customer_id=(string?)null, rate_multiplier=1.0, is_billable_default=true, default_activity_type_id=(string?)null, version=1 }, cancellationToken);
         await tx.CommitAsync(cancellationToken); return project;
     }
 

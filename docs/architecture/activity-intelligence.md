@@ -88,3 +88,31 @@ The backend now contains `WorkEventProjectionService`, `WorkEventMaterializer`, 
 Accepted Activity Sync changes rebuild only affected local dates with a bounded number of dates per request. Historical Web corrections rebuild both the previous and new local dates when an Activity crosses a date boundary. The Work Event audit page can also explicitly rebuild a selected day.
 
 Reports may display Direct + Bridge credited Effort, while finalized Billing intentionally remains on raw Activity Sessions until financial parity tests and immutable Bridge snapshot semantics are completed.
+
+
+## Activity Type Intelligence — P1
+
+Project classification and Activity Type classification are separate pipelines. The Agent resolves Activity Type in this order:
+
+1. Explicit IDE signal (`debug`, debugger, PHPUnit/test runner, explicit review signals).
+2. User-managed `activity_type_rules`, optionally scoped to the resolved Project.
+3. `projects.default_activity_type_id` as a conservative fallback.
+4. Unknown when no reliable signal exists.
+
+A plain IDE process is **not** intrinsically equal to Development. A software Project can opt into Development by setting its project default, while Debugging/Testing rules or explicit IDE signals override that default.
+
+Each automatic decision stores separate provenance fields on the raw Activity Session:
+
+- `activity_type_confidence`
+- `activity_type_source`
+- `activity_type_reason`
+
+This lets Web diagnostics and future billing review distinguish an explicit IDE signal from a configurable Rule, a Project fallback, or a user correction.
+
+Configured Rule types are `ProcessName`, `WindowTitle`, `ExecutablePath`, `ContextKey`, and `Keyword`; operators are the same safe set used by Project Rules. Regex evaluation on the Agent uses a timeout.
+
+### Rule precedence details
+
+Rule `priority` is evaluated before accumulated `weight`. At the same priority, a Project-scoped Rule is considered more specific than a global Rule. Two candidates with the same priority and scope remain Unknown when their scores are within the ambiguity margin; the resolver does not guess.
+
+Explicit IDE signals are intentionally narrow. A source filename such as `DebugService.php` is not by itself a Debugging signal. Current alpha.7.3 signals require debugger/test/review UI wording such as `Debugger`, `[Debug]`, `PHPUnit`, `Test Runner`, `Code Review`, or `Git Diff`. If such a strong signal is present but the matching Activity Type taxonomy does not exist, classification remains Unknown rather than silently falling back to the Project default.

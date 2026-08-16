@@ -17,7 +17,7 @@ class ProjectController extends Controller
     {
         $projects = Project::query()
             ->whereBelongsTo($request->user())
-            ->with(['rules', 'customer:id,name,company_name,currency,rate_multiplier'])
+            ->with(['rules', 'customer:id,name,company_name,currency,rate_multiplier', 'defaultActivityType:id,name,code'])
             ->orderBy('name')
             ->get();
 
@@ -37,6 +37,7 @@ class ProjectController extends Controller
             'color' => ['nullable', 'regex:/^#[0-9A-Fa-f]{6}$/'],
             'rate_multiplier' => ['nullable', 'numeric', 'min:0', 'max:100'],
             'is_billable_default' => ['nullable', 'boolean'],
+            'default_activity_type_id' => ['nullable', 'uuid', Rule::exists('activity_types', 'id')->where(fn ($q) => $q->whereNull('user_id')->orWhere('user_id', $userId))],
             'effective_from' => ['nullable', 'date'],
         ]);
 
@@ -58,13 +59,13 @@ class ProjectController extends Controller
             return $project;
         });
 
-        return response()->json(['data' => $project->load(['rules', 'customer'])], 201);
+        return response()->json(['data' => $project->load(['rules', 'customer', 'defaultActivityType'])], 201);
     }
 
     public function show(Request $request, Project $project): JsonResponse
     {
         $this->authorizeProject($request, $project);
-        return response()->json(['data' => $project->load(['rules', 'customer'])]);
+        return response()->json(['data' => $project->load(['rules', 'customer', 'defaultActivityType'])]);
     }
 
     public function update(Request $request, Project $project): JsonResponse
@@ -81,6 +82,7 @@ class ProjectController extends Controller
             'is_archived' => ['sometimes', 'boolean'],
             'rate_multiplier' => ['sometimes', 'numeric', 'min:0', 'max:100'],
             'is_billable_default' => ['sometimes', 'boolean'],
+            'default_activity_type_id' => ['nullable', 'uuid', Rule::exists('activity_types', 'id')->where(fn ($q) => $q->whereNull('user_id')->orWhere('user_id', $userId))],
             'effective_from' => ['nullable', 'date'],
         ]);
 
@@ -109,7 +111,7 @@ class ProjectController extends Controller
             }
         });
 
-        return response()->json(['data' => $project->load(['rules', 'customer'])]);
+        return response()->json(['data' => $project->load(['rules', 'customer', 'defaultActivityType'])]);
     }
 
     public function destroy(Request $request, Project $project): JsonResponse

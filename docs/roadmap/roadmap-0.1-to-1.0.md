@@ -52,3 +52,13 @@ Team roles, richer Task planning/assignees, invoice payment lifecycle, optional 
 
 ## 1.0 target
 Stable Windows Agent + Laravel backend with reliable offline-first sync, trustworthy additive time accounting, multi-device reporting, billing/invoicing, privacy controls, production deployment documentation and update path.
+
+
+### alpha.7.3 P1 — Activity Type Intelligence
+- [x] Project default Activity Type
+- [x] Global and Project-scoped Activity Type Rules
+- [x] Explicit IDE Debug/Test/Review signal precedence
+- [x] Separate confidence/source/reason provenance
+- [x] Sync Activity Type Rules to Windows Agent
+- [ ] Deep PhpStorm/VS Code mode integration
+- [ ] Browser URL/domain enrichment

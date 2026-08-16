@@ -9,7 +9,8 @@ public sealed record Project(
     DateTimeOffset? UpdatedAt = null,
     string? CustomerId = null,
     decimal RateMultiplier = 1.0000m,
-    bool IsBillableDefault = true)
+    bool IsBillableDefault = true,
+    string? DefaultActivityTypeId = null)
 {
     public override string ToString() => string.IsNullOrWhiteSpace(Code) ? Name : $"{Name} ({Code})";
 }

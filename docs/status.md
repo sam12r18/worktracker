@@ -58,3 +58,5 @@ Current release: **0.1.0-alpha.7.3 — Activity Intelligence & Work Events**
 - Central reports can include derived Bridge Effort while invoice generation remains intentionally unchanged.
 - Projection-day queries convert `Asia/Tehran` day boundaries to UTC before MySQL filtering.
 - Health now requires the Work Event projection schema and reports the Activity Intelligence policy/version.
+
+- Activity Type Intelligence P1: project defaults, configurable type rules, explicit IDE Debug/Test/Review signals, confidence/source/reason provenance, and Agent sync are implemented in alpha.7.3.

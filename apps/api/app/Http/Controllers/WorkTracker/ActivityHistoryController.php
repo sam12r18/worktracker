@@ -85,7 +85,7 @@ class ActivityHistoryController extends Controller
         ]);
 
         $before = $activity->only([
-            'project_id', 'activity_type_id', 'started_at', 'ended_at',
+            'project_id', 'activity_type_id', 'activity_type_confidence', 'activity_type_source', 'activity_type_reason', 'started_at', 'ended_at',
             'duration_seconds', 'is_billable', 'note', 'version',
         ]);
         $beforeStartedAt = CarbonImmutable::parse($activity->started_at);
@@ -96,6 +96,9 @@ class ActivityHistoryController extends Controller
             $end = CarbonImmutable::parse($data['ended_at'], $data['timezone'])->utc();
             $activity->project_id = $data['project_id'] ?: null;
             $activity->activity_type_id = $data['activity_type_id'] ?: null;
+            $activity->activity_type_confidence = $activity->activity_type_id ? 1.0 : null;
+            $activity->activity_type_source = $activity->activity_type_id ? 'user_override' : null;
+            $activity->activity_type_reason = $activity->activity_type_id ? 'web_historical_correction' : null;
             $activity->started_at = $start;
             $activity->ended_at = $end;
             $activity->duration_seconds = max(1, $start->diffInSeconds($end));
@@ -116,7 +119,7 @@ class ActivityHistoryController extends Controller
             'historical_update',
             $before,
             $activity->fresh()->only([
-                'project_id', 'activity_type_id', 'started_at', 'ended_at',
+                'project_id', 'activity_type_id', 'activity_type_confidence', 'activity_type_source', 'activity_type_reason', 'started_at', 'ended_at',
                 'duration_seconds', 'is_billable', 'note', 'version',
             ]),
             $data['reason']

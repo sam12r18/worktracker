@@ -45,7 +45,7 @@ public sealed class TrackingEngine : IAsyncDisposable
             $"live:{_deviceId}", _userId, _deviceId, live.ProjectId, null, ActivitySource.AutoForeground,
             live.Snapshot.ProcessName, live.Snapshot.ExecutablePath, live.Snapshot.WindowTitle,
             live.ClassificationConfidence, live.ClassificationReason, live.StartedAt, now, duration, 0, null,
-            live.ActivityTypeId, null, 1, "live");
+            live.ActivityTypeId, null, 1, "live", live.ActivityTypeConfidence, live.ActivityTypeReason, live.ActivityTypeSource);
     }
 
     public void Start(){ if(_loop is not null)return; _cts=new CancellationTokenSource(); _paused=false; State=TrackingState.Tracking; RaiseState(); _loop=RunAsync(_cts.Token); }
@@ -71,7 +71,7 @@ public sealed class TrackingEngine : IAsyncDisposable
     private async Task SetCurrentAsync(ForegroundSnapshot snapshot, DateTimeOffset now, CancellationToken ct)
     {
         var resolution = await _classification.ResolveAsync(snapshot, ct);
-        var activityType = await _activityTypeInference.ResolveAsync(snapshot, ct);
+        var activityType = await _activityTypeInference.ResolveAsync(snapshot, resolution?.ProjectId, ct);
         var reasons = new List<string>();
         if (resolution is not null) reasons.AddRange(resolution.Reasons); else reasons.Add("unclassified");
         if (activityType is not null) reasons.Add($"activity_type:{activityType.Reason}");
@@ -84,7 +84,10 @@ public sealed class TrackingEngine : IAsyncDisposable
             activityType?.ActivityTypeId,
             resolution?.Confidence,
             string.Join("; ", reasons),
-            now);
+            now,
+            activityType?.Confidence,
+            activityType?.Reason,
+            activityType?.Source);
         ForegroundChanged?.Invoke(this, snapshot);
         LiveActivityChanged?.Invoke(this, _liveActivity);
     }
@@ -103,7 +106,7 @@ public sealed class TrackingEngine : IAsyncDisposable
         LiveActivityChanged?.Invoke(this,null);
         if(duration<2)return;
         var session=new ActivitySession(Guid.NewGuid().ToString(),_userId,_deviceId,live?.ProjectId,null,ActivitySource.AutoForeground,
-            snapshot.ProcessName,snapshot.ExecutablePath,snapshot.WindowTitle,live?.ClassificationConfidence,live?.ClassificationReason,start,end,duration,0,null,live?.ActivityTypeId);
+            snapshot.ProcessName,snapshot.ExecutablePath,snapshot.WindowTitle,live?.ClassificationConfidence,live?.ClassificationReason,start,end,duration,0,null,live?.ActivityTypeId,null,1,"pending",live?.ActivityTypeConfidence,live?.ActivityTypeReason,live?.ActivityTypeSource);
         await _repository.AddAsync(session,ct); SessionSaved?.Invoke(this,session);
     }
 

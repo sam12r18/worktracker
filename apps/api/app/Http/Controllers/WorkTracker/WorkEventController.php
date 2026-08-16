@@ -31,7 +31,8 @@ class WorkEventController extends Controller
             ->with([
                 'project:id,name,code',
                 'device:id,name,operator_label',
-                'segments.activitySession:id,process_name,window_title,source,activity_type_id',
+                'segments.activitySession:id,process_name,window_title,source,activity_type_id,activity_type_confidence,activity_type_source,activity_type_reason',
+                'segments.activitySession.activityType:id,name',
                 'bridges',
             ])
             ->orderBy('started_at');

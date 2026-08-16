@@ -15,9 +15,9 @@ Important areas:
 - `App.xaml.cs` — startup, single-instance mutex and explicit WPF `MessageBox` alias.
 - `Tracking/` — foreground + idle capture plus application Context normalization.
 - `Classification/ProjectResolver.cs` — deterministic Rule matching including contains/equals/starts_with/ends_with/regex.
-- `Classification/ActivityTypeInferenceService.cs` — conservative explicit Debug/Test inference only.
+- `Classification/ActivityTypeInferenceService.cs` + `ActivityTypeResolver.cs` — conservative Activity Type resolution from explicit IDE signals, server-managed Rules and Project defaults with provenance/confidence.
 - `Services/WorkEventAggregationService.cs` — derived Work Events, same-Project aggregation, per-project continuity state decisions and mutual/multi-project bridge projection.
-- `Storage/` — SQLite schema/repositories and additive upgrade columns; `project_rules.operator` is auto-added to existing local DBs.
+- `Storage/` — SQLite schema/repositories and additive upgrade columns; includes pulled `activity_type_rules`, Project default Activity Type and Activity Type decision provenance.
 - `Sync/` — outbox, Sanctum API client, Project/Rule/Billing Pull and conflict handling.
 - `MainWindow.xaml(.cs)` — Work Event timeline/correction, Sync diagnostics/settings and Device UUID copy action.
 - `Themes/WorkTrackerTheme.xaml` — shared dark WPF theme.
@@ -29,6 +29,7 @@ Important controllers:
 - `WorkTracker/ProjectRuleManagementController.php`
 - `WorkTracker/TaskManagementController.php`
 - `WorkTracker/BillingController.php`
+- `WorkTracker/ActivityIntelligenceController.php`
 - `Web/WorkTrackerAccessTokenController.php`
 
 Important shared UI:
@@ -43,6 +44,7 @@ Authenticated web routes include:
 - `/worktracker/customers`
 - `/worktracker/access-tokens`
 - `/worktracker/billing`
+- `/worktracker/activity-intelligence`
 - `/worktracker/activities`
 - `/worktracker/reports`
 - `/worktracker/audit`
@@ -55,7 +57,7 @@ Device bootstrap/sync:
 - `POST /api/v1/devices`
 - `POST /api/v1/sync`
 
-Admin API additionally exposes Projects, Customers, project Tasks, Devices, Activities, Reports, Operations and Sync Conflicts, split by `admin:read` / `admin:write` abilities.
+Admin API additionally exposes Projects, Customers, project Tasks, Devices, Activities, Activity Type Rules, Reports, Operations and Sync Conflicts, split by `admin:read` / `admin:write` abilities.
 
 ## Token flow
 1. Agent creates/persists Device UUID locally.

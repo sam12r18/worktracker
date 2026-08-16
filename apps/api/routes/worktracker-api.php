@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\ActivitySessionController;
+use App\Http\Controllers\Api\V1\ActivityTypeRuleController;
 use App\Http\Controllers\Api\V1\CustomerController;
 use App\Http\Controllers\Api\V1\DeviceController;
 use App\Http\Controllers\Api\V1\OperationsController;
@@ -32,6 +33,7 @@ Route::prefix('v1')->middleware(['auth:sanctum', RequireWorkTrackerHttps::class]
         Route::get('projects/{project}/tasks', [TaskController::class, 'index']);
         Route::get('projects/{project}/tasks/{task}', [TaskController::class, 'show']);
         Route::get('activity-sessions', [ActivitySessionController::class, 'index']);
+        Route::get('activity-type-rules', [ActivityTypeRuleController::class, 'index']);
         Route::get('activity-sessions/{activitySession}', [ActivitySessionController::class, 'show']);
         Route::get('reports/daily', [ReportController::class, 'daily']);
         Route::get('reports/projects/{project}', [ReportController::class, 'project']);
@@ -44,6 +46,10 @@ Route::prefix('v1')->middleware(['auth:sanctum', RequireWorkTrackerHttps::class]
     // Administrative mutations require a write-scoped token.
     Route::middleware([RequireWorkTrackerTokenAbility::class . ':admin:write', 'throttle:60,1'])->group(function () {
         Route::post('projects', [ProjectController::class, 'store']);
+        Route::post('activity-type-rules', [ActivityTypeRuleController::class, 'store']);
+        Route::put('activity-type-rules/{activityTypeRule}', [ActivityTypeRuleController::class, 'update']);
+        Route::patch('activity-type-rules/{activityTypeRule}', [ActivityTypeRuleController::class, 'update']);
+        Route::delete('activity-type-rules/{activityTypeRule}', [ActivityTypeRuleController::class, 'destroy']);
         Route::put('projects/{project}', [ProjectController::class, 'update']);
         Route::patch('projects/{project}', [ProjectController::class, 'update']);
         Route::delete('projects/{project}', [ProjectController::class, 'destroy']);

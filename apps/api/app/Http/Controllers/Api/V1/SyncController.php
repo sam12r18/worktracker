@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\ActivitySession;
 use App\Models\ActivityType;
+use App\Models\ActivityTypeRule;
 use App\Models\Device;
 use App\Models\Project;
 use App\Models\ProjectRule;
@@ -107,7 +108,7 @@ class SyncController extends Controller
                         $project ??= new Project(['id' => $change['id']]);
                         $parentId = $payload['parent_id'] ?? null;
                         if ($parentId) Project::query()->whereKey($parentId)->whereBelongsTo($user)->firstOrFail();
-                        $project->fill(collect($payload)->only(['parent_id','name','code','status','color','is_archived'])->all());
+                        $project->fill(collect($payload)->only(['parent_id','name','code','status','color','is_archived','default_activity_type_id'])->all());
                         $project->version = $version;
                         $project->user()->associate($user);
                         $project->save();
@@ -274,6 +275,7 @@ class SyncController extends Controller
                 'customer_id' => ['nullable','uuid', Rule::exists('customers','id')->where('user_id',$userId)],
                 'rate_multiplier' => ['nullable','numeric','min:0','max:100'],
                 'is_billable_default' => ['nullable','boolean'],
+                'default_activity_type_id' => ['nullable','uuid', Rule::exists('activity_types','id')->where(fn($q)=>$q->whereNull('user_id')->orWhere('user_id',$userId))],
             ])->validate();
         }
 
@@ -296,6 +298,9 @@ class SyncController extends Controller
             'project_id' => ['nullable','string','max:36', Rule::exists('projects','id')->where('user_id',$userId)],
             'task_id' => ['nullable','string','max:26'],
             'activity_type_id' => ['nullable','uuid', Rule::exists('activity_types','id')->where(fn($q)=>$q->whereNull('user_id')->orWhere('user_id',$userId))],
+            'activity_type_confidence' => ['nullable','numeric','min:0','max:1'],
+            'activity_type_source' => ['nullable','string','max:64'],
+            'activity_type_reason' => ['nullable','string','max:4096'],
             'source' => ['required','in:auto_foreground,manual_timer,manual_entry,idle_reclassified'],
             'process_name' => ['nullable','string','max:255'],
             'executable_path' => ['nullable','string','max:4096'],
@@ -354,19 +359,22 @@ class SyncController extends Controller
         $projectQuery = Project::query()->where('user_id', $userId);
         $ruleQuery = ProjectRule::query()->whereHas('project', fn($q) => $q->where('user_id', $userId));
         $activityTypeQuery = ActivityType::query()->where(fn($q)=>$q->whereNull('user_id')->orWhere('user_id',$userId));
+        $activityTypeRuleQuery = ActivityTypeRule::query()->where('user_id', $userId);
         $this->applyCursorToEntityQuery($projectQuery, 'project', $cursor, $from);
         $this->applyCursorToEntityQuery($ruleQuery, 'project_rule', $cursor, $from);
         $this->applyCursorToEntityQuery($activityTypeQuery, 'activity_type', $cursor, $from);
+        $this->applyCursorToEntityQuery($activityTypeRuleQuery, 'activity_type_rule', $cursor, $from);
         $projectRows = $projectQuery->where('updated_at', '<=', $until)->orderBy('updated_at')->orderBy('id')->limit($limit + 1)->get();
         $ruleRows = $ruleQuery->where('updated_at', '<=', $until)->orderBy('updated_at')->orderBy('id')->limit($limit + 1)->get();
         $activityTypeRows = $activityTypeQuery->where('updated_at','<=',$until)->orderBy('updated_at')->orderBy('id')->limit($limit + 1)->get();
+        $activityTypeRuleRows = $activityTypeRuleQuery->where('updated_at','<=',$until)->orderBy('updated_at')->orderBy('id')->limit($limit + 1)->get();
 
         $changes = [];
         foreach ($projectRows as $project) {
             $changes[] = [
                 'entity'=>'project','id'=>(string)$project->getKey(),'version'=>(int)$project->version,
                 'updated_at'=>$project->updated_at->toISOString(),
-                'payload'=>['name'=>$project->name,'code'=>$project->code,'parent_id'=>$project->parent_id,'status'=>$project->status,'color'=>$project->color,'is_archived'=>(bool)$project->is_archived,'customer_id'=>$project->customer_id,'rate_multiplier'=>(float)$project->rate_multiplier,'is_billable_default'=>(bool)$project->is_billable_default],
+                'payload'=>['name'=>$project->name,'code'=>$project->code,'parent_id'=>$project->parent_id,'status'=>$project->status,'color'=>$project->color,'is_archived'=>(bool)$project->is_archived,'customer_id'=>$project->customer_id,'rate_multiplier'=>(float)$project->rate_multiplier,'is_billable_default'=>(bool)$project->is_billable_default,'default_activity_type_id'=>$project->default_activity_type_id],
             ];
         }
         foreach ($ruleRows as $rule) {
@@ -382,6 +390,24 @@ class SyncController extends Controller
                 'entity'=>'activity_type','id'=>(string)$type->getKey(),'version'=>(int)$type->version,
                 'updated_at'=>$type->updated_at->toISOString(),
                 'payload'=>['code'=>$type->code,'name'=>$type->name,'is_billable_default'=>(bool)$type->is_billable_default,'base_hourly_rate_minor'=>(int)$type->base_hourly_rate_minor,'currency'=>$type->currency,'is_active'=>(bool)$type->is_active,'sort_order'=>(int)$type->sort_order],
+            ];
+        }
+
+        foreach ($activityTypeRuleRows as $rule) {
+            $changes[] = [
+                'entity'=>'activity_type_rule','id'=>(string)$rule->getKey(),'version'=>(int)$rule->version,
+                'updated_at'=>$rule->updated_at->toISOString(),
+                'payload'=>[
+                    'project_id'=>$rule->project_id,
+                    'activity_type_id'=>(string)$rule->activity_type_id,
+                    'rule_type'=>$rule->rule_type,
+                    'operator'=>$rule->operator,
+                    'pattern'=>$rule->pattern,
+                    'weight'=>(int)$rule->weight,
+                    'priority'=>(int)$rule->priority,
+                    'confidence'=>(float)$rule->confidence,
+                    'is_enabled'=>(bool)$rule->is_enabled,
+                ],
             ];
         }
 

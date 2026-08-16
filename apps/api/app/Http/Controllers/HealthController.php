@@ -40,6 +40,7 @@ class HealthController extends Controller
             'activity_sessions',
             'customers',
             'activity_types',
+            'activity_type_rules',
             'invoices',
             'worktracker_audit_logs',
             'work_events',
@@ -88,6 +89,7 @@ class HealthController extends Controller
             'login',
             'worktracker.dashboard',
             'worktracker.activities.index',
+            'worktracker.activity-intelligence.index',
             'worktracker.reports.index',
             'worktracker.work-events.index',
         ];

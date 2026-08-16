@@ -20,5 +20,8 @@ public sealed record ActivitySession(
     string? ActivityTypeId = null,
     bool? IsBillable = null,
     int Version = 1,
-    string SyncState = "pending"
+    string SyncState = "pending",
+    double? ActivityTypeConfidence = null,
+    string? ActivityTypeReason = null,
+    string? ActivityTypeSource = null
 );
