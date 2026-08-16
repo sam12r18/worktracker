@@ -17,7 +17,7 @@ class WorkTrackerDashboardController extends Controller
 {
     public function dashboard(Request $request, CentralReportingService $reports): View
     {
-        $tz=(string)($request->query('timezone') ?: config('app.timezone','UTC'));
+        $tz=(string)($request->query('timezone') ?: config('worktracker.display_timezone','Asia/Tehran'));
         $date=(string)($request->query('date') ?: CarbonImmutable::now($tz)->toDateString());
         $day=CarbonImmutable::parse($date,$tz)->startOfDay();
         $userId=$request->user()->getKey();

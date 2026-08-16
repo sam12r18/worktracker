@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Threading;
 using WorkTracker.Agent.Classification;
@@ -42,11 +43,14 @@ public partial class MainWindow : Window
         try
         {
             var projects=await _projects.GetActiveAsync(); var map=projects.ToDictionary(x=>x.Id,x=>x.Name); var activityTypes=await _activityTypes.GetActiveAsync(); var typeMap=activityTypes.ToDictionary(x=>x.Id,x=>x.Name);
-            var manualSelected=ManualProjectCombo.SelectedValue as string; var manualTypeSelected=ManualActivityTypeCombo.SelectedValue as string; var timelineTypeSelected=TimelineActivityTypeCombo.SelectedValue as string; var unknownSelected=UnknownProjectCombo.SelectedValue as string;
-            ManualProjectCombo.ItemsSource=projects; ManualActivityTypeCombo.ItemsSource=activityTypes; TimelineActivityTypeCombo.ItemsSource=activityTypes; UnknownProjectCombo.ItemsSource=projects; LocalConfigText.Text=$"پروژه محلی: {projects.Count} · نوع فعالیت: {activityTypes.Count}";
-            if(manualSelected is not null) ManualProjectCombo.SelectedValue=manualSelected; if(manualTypeSelected is not null) ManualActivityTypeCombo.SelectedValue=manualTypeSelected; if(timelineTypeSelected is not null) TimelineActivityTypeCombo.SelectedValue=timelineTypeSelected; if(unknownSelected is not null) UnknownProjectCombo.SelectedValue=unknownSelected;
+            var manualSelected=ManualProjectCombo.SelectedValue as string; var manualTypeSelected=ManualActivityTypeCombo.SelectedValue as string; var timelineTypeSelected=TimelineActivityTypeCombo.SelectedValue as string; var unknownSelected=UnknownProjectCombo.SelectedValue as string; var assignedSelected=AssignedProjectCombo.SelectedValue as string;
+            var unknownActivitySelected=(UnknownActivitiesList.SelectedItem as ActivityRow)?.Id; var assignedActivitySelected=(AssignedActivitiesList.SelectedItem as ActivityRow)?.Id;
+            ManualProjectCombo.ItemsSource=projects; ManualActivityTypeCombo.ItemsSource=activityTypes; TimelineActivityTypeCombo.ItemsSource=activityTypes; UnknownProjectCombo.ItemsSource=projects; AssignedProjectCombo.ItemsSource=projects; LocalConfigText.Text=$"پروژه محلی: {projects.Count} · نوع فعالیت: {activityTypes.Count}";
+            if(manualSelected is not null) ManualProjectCombo.SelectedValue=manualSelected; if(manualTypeSelected is not null) ManualActivityTypeCombo.SelectedValue=manualTypeSelected; if(timelineTypeSelected is not null) TimelineActivityTypeCombo.SelectedValue=timelineTypeSelected; if(unknownSelected is not null) UnknownProjectCombo.SelectedValue=unknownSelected; if(assignedSelected is not null) AssignedProjectCombo.SelectedValue=assignedSelected;
             var sessions=await _repository.GetForLocalDayAsync(DateTime.Now.Date); ActivitiesList.ItemsSource=sessions.Select(s=>new ActivityRow(s,s.ProjectId is not null&&map.TryGetValue(s.ProjectId,out var n)?n:null,s.ActivityTypeId is not null&&typeMap.TryGetValue(s.ActivityTypeId,out var tn)?tn:null)).ToList();
-            var unknown=sessions.Where(x=>string.IsNullOrWhiteSpace(x.ProjectId)).ToList(); UnknownActivitiesList.ItemsSource=unknown.Select(s=>new ActivityRow(s)).ToList(); ActiveManualTimersList.ItemsSource=_manualTimer.ActiveTimers;
+            var unknown=sessions.Where(x=>string.IsNullOrWhiteSpace(x.ProjectId)).ToList(); var unknownRows=unknown.Select(s=>new ActivityRow(s)).ToList(); UnknownActivitiesList.ItemsSource=unknownRows; if(unknownActivitySelected is not null) UnknownActivitiesList.SelectedItem=unknownRows.FirstOrDefault(x=>x.Id==unknownActivitySelected);
+            var assigned=sessions.Where(x=>!string.IsNullOrWhiteSpace(x.ProjectId)).Select(s=>new ActivityRow(s,s.ProjectId is not null&&map.TryGetValue(s.ProjectId,out var pn)?pn:null,s.ActivityTypeId is not null&&typeMap.TryGetValue(s.ActivityTypeId,out var atn)?atn:null)).ToList(); AssignedActivitiesList.ItemsSource=assigned; if(assignedActivitySelected is not null) AssignedActivitiesList.SelectedItem=assigned.FirstOrDefault(x=>x.Id==assignedActivitySelected);
+            ActiveManualTimersList.ItemsSource=_manualTimer.ActiveTimers;
             SyncConflictsGrid.ItemsSource=await _syncOutbox.GetOpenConflictsAsync();
             var queue=await _syncOutbox.GetQueueDiagnosticsAsync();
             QueueDiagnosticsText.Text=FormatQueueDiagnostics(queue);
@@ -69,6 +73,47 @@ public partial class MainWindow : Window
     }
     private async void AssignUnknownButton_Click(object sender,RoutedEventArgs e)=>await AssignUnknownAsync(false);
     private async void AssignAndLearnButton_Click(object sender,RoutedEventArgs e)=>await AssignUnknownAsync(true);
+
+    private void AssignedActivitiesList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (AssignedActivitiesList.SelectedItem is ActivityRow row && !string.IsNullOrWhiteSpace(row.Session.ProjectId))
+            AssignedProjectCombo.SelectedValue = row.Session.ProjectId;
+    }
+
+    private async Task ReassignDetectedAsync(bool learn)
+    {
+        try
+        {
+            if (AssignedActivitiesList.SelectedItem is not ActivityRow row)
+            {
+                MessageBox.Show("یک فعالیت تشخیص‌داده‌شده را انتخاب کنید.", "WorkTracker", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+            if (AssignedProjectCombo.SelectedValue is not string projectId)
+            {
+                MessageBox.Show("پروژه مقصد را انتخاب کنید.", "WorkTracker", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            await _corrections.AssignAsync(row.Session, projectId, learn);
+            await AgentLog.InfoAsync("classification.correction", learn ? "detected activity reassigned and learned" : "detected activity reassigned", new
+            {
+                activity_id = row.Id,
+                from_project_id = row.Session.ProjectId,
+                to_project_id = projectId,
+                learned = learn,
+            });
+            await RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(ex.Message, "WorkTracker", MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
+    }
+
+    private async void ReassignDetectedButton_Click(object sender, RoutedEventArgs e) => await ReassignDetectedAsync(false);
+    private async void ReassignDetectedAndLearnButton_Click(object sender, RoutedEventArgs e) => await ReassignDetectedAsync(true);
+
     private async void AddProjectButton_Click(object sender,RoutedEventArgs e){try{await _projects.CreateAsync(NewProjectNameTextBox.Text,NewProjectCodeTextBox.Text);NewProjectNameTextBox.Clear();NewProjectCodeTextBox.Clear();await RefreshAsync();}catch(Exception ex){MessageBox.Show(ex.Message,"WorkTracker",MessageBoxButton.OK,MessageBoxImage.Warning);}}
 
     private async Task LoadSyncSettingsAsync()
@@ -91,10 +136,12 @@ public partial class MainWindow : Window
         try
         {
             await _syncSettings.ResetCursorAsync();
-            await _sync.TriggerAsync();
+            await AgentLog.InfoAsync("sync.pull", "full configuration pull requested by user; local cursor reset");
+            await _sync.TriggerAsync(pullOnly: true);
             await RefreshAsync();
             await RefreshLogsAsync();
-            MessageBox.Show("Checkpoint همگام‌سازی بازنشانی شد و Project/Rule/Activity Typeها دوباره از سرور خوانده شدند.", "WorkTracker Sync", MessageBoxButton.OK, MessageBoxImage.Information);
+            var icon = _sync.Status.State == "ok" ? MessageBoxImage.Information : MessageBoxImage.Warning;
+            MessageBox.Show(_sync.Status.Message, "WorkTracker Sync", MessageBoxButton.OK, icon);
         }
         catch(Exception ex){MessageBox.Show(ex.Message,"WorkTracker Sync",MessageBoxButton.OK,MessageBoxImage.Warning);}
     }

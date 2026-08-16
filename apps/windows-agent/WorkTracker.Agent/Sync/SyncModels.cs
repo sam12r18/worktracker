@@ -72,3 +72,11 @@ public sealed record SyncQueueDiagnostics(
     string? LastError,
     string? LastErrorEntity,
     string? LastErrorEntityId);
+
+public sealed record SyncAcknowledgeResult(
+    int Sent,
+    int Accepted,
+    int Matched,
+    int Deleted,
+    bool WholeBatchFallbackUsed,
+    IReadOnlyList<string> UnmatchedAcceptedKeys);

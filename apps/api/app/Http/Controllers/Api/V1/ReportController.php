@@ -18,7 +18,7 @@ class ReportController extends Controller
             'timezone'=>['nullable','timezone'],
             'device_id'=>['nullable','uuid'],
         ]);
-        $tz=$data['timezone'] ?? config('app.timezone', 'UTC');
+        $tz=$data['timezone'] ?? config('worktracker.display_timezone', 'Asia/Tehran');
         $day=isset($data['date']) ? CarbonImmutable::parse($data['date'],$tz)->startOfDay() : CarbonImmutable::now($tz)->startOfDay();
         return response()->json(['data'=>$reports->daily($request->user()->getKey(),$day,$data['device_id'] ?? null)]);
     }
@@ -31,7 +31,7 @@ class ReportController extends Controller
             'to'=>['required','date','after:from'],
             'timezone'=>['nullable','timezone'],
         ]);
-        $tz=$data['timezone'] ?? config('app.timezone','UTC');
+        $tz=$data['timezone'] ?? config('worktracker.display_timezone','Asia/Tehran');
         $from=CarbonImmutable::parse($data['from'],$tz);
         $to=CarbonImmutable::parse($data['to'],$tz);
         return response()->json(['data'=>$reports->project($request->user()->getKey(),(string)$project->getKey(),$from,$to)]);

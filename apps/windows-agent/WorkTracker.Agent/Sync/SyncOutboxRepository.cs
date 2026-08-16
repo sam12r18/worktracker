@@ -23,18 +23,66 @@ public sealed class SyncOutboxRepository(LocalDatabase database)
         return result;
     }
 
-    public async Task MarkAcceptedAsync(IEnumerable<SyncAccepted> accepted, CancellationToken ct = default)
+    public async Task<SyncAcknowledgeResult> MarkAcceptedAsync(
+        IReadOnlyList<OutboxItem> sentItems,
+        IReadOnlyList<SyncAccepted> accepted,
+        bool wholeBatchAccepted,
+        CancellationToken ct = default)
     {
+        // Acknowledge the exact outbox row that was sent, not every row for the same entity.
+        // This is both safer under concurrent local edits and avoids repeatedly resending a
+        // server-accepted batch when entity/id matching is affected by formatting/casing.
+        var acceptedKeys = accepted
+            .Where(x => !string.IsNullOrWhiteSpace(x.Entity) && !string.IsNullOrWhiteSpace(x.Id))
+            .Select(x => EntityKey(x.Entity, x.Id))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var sentByKey = sentItems
+            .GroupBy(x => EntityKey(x.EntityType, x.EntityId), StringComparer.OrdinalIgnoreCase)
+            .ToDictionary(g => g.Key, g => g.ToList(), StringComparer.OrdinalIgnoreCase);
+
+        var unmatchedAccepted = acceptedKeys.Where(x => !sentByKey.ContainsKey(x)).Take(20).ToList();
+        var matched = 0;
+        var deleted = 0;
+
         await using var connection = database.OpenConnection();
         await using var tx = await connection.BeginTransactionAsync(ct);
-        foreach (var item in accepted)
+
+        foreach (var item in sentItems)
         {
-            await using var delete = connection.CreateCommand(); delete.Transaction=(SqliteTransaction)tx;
-            delete.CommandText="DELETE FROM sync_outbox WHERE entity_type=$entity AND entity_id=$id";
-            delete.Parameters.AddWithValue("$entity",item.Entity);delete.Parameters.AddWithValue("$id",item.Id);await delete.ExecuteNonQueryAsync(ct);
-            await SetEntitySyncStateAsync(connection,(SqliteTransaction)tx,item.Entity,item.Id,"synced",ct);
+            var keyMatched = acceptedKeys.Contains(EntityKey(item.EntityType, item.EntityId));
+            if (!keyMatched && !wholeBatchAccepted)
+                continue;
+
+            if (keyMatched) matched++;
+            await using var delete = connection.CreateCommand();
+            delete.Transaction = (SqliteTransaction)tx;
+            delete.CommandText = "DELETE FROM sync_outbox WHERE id=$outbox_id";
+            delete.Parameters.AddWithValue("$outbox_id", item.Id);
+            deleted += await delete.ExecuteNonQueryAsync(ct);
+
+            // A newer edit may have replaced the sent outbox row while HTTP was in flight.
+            // Only mark the entity synced when no newer local work is still pending.
+            if (!await HasPendingOutboxAsync(connection, (SqliteTransaction)tx, item.EntityType, item.EntityId, ct))
+                await SetEntitySyncStateAsync(connection, (SqliteTransaction)tx, item.EntityType, item.EntityId, "synced", ct);
         }
+
         await tx.CommitAsync(ct);
+        return new SyncAcknowledgeResult(sentItems.Count, accepted.Count, matched, deleted, wholeBatchAccepted && matched != sentItems.Count, unmatchedAccepted);
+    }
+
+    private static string EntityKey(string entity, string id)
+        => $"{entity.Trim().ToLowerInvariant()}\u001f{id.Trim().ToLowerInvariant()}";
+
+    private static async Task<bool> HasPendingOutboxAsync(
+        SqliteConnection connection, SqliteTransaction tx, string entity, string id, CancellationToken ct)
+    {
+        await using var cmd = connection.CreateCommand();
+        cmd.Transaction = tx;
+        cmd.CommandText = "SELECT 1 FROM sync_outbox WHERE entity_type=$entity AND entity_id=$id LIMIT 1";
+        cmd.Parameters.AddWithValue("$entity", entity);
+        cmd.Parameters.AddWithValue("$id", id);
+        return await cmd.ExecuteScalarAsync(ct) is not null;
     }
 
     public async Task MarkConflictsAsync(IEnumerable<SyncConflict> conflicts, CancellationToken ct = default)

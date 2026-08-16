@@ -41,7 +41,7 @@ public sealed class SyncEngine : IAsyncDisposable
         _loop = LoopAsync(_cts.Token);
     }
 
-    public async Task TriggerAsync(CancellationToken ct = default)
+    public async Task TriggerAsync(CancellationToken ct = default, bool pullOnly = false)
     {
         await _gate.WaitAsync(ct);
         var correlationId = Guid.NewGuid().ToString("N");
@@ -60,6 +60,7 @@ public sealed class SyncEngine : IAsyncDisposable
                 has_cursor = !string.IsNullOrWhiteSpace(settings.Cursor),
                 queue = QueueLog(queueBefore),
                 conflicts = conflictCount,
+                pull_only = pullOnly,
             }, correlationId);
 
             if (!settings.IsConfigured)
@@ -71,7 +72,7 @@ public sealed class SyncEngine : IAsyncDisposable
 
             Set(new SyncStatus("syncing", "در حال همگام‌سازی…", settings.LastSuccessfulSyncAt, queueBefore.Total, conflictCount));
 
-            var items = await _outbox.GetDueAsync(200, ct);
+            IReadOnlyList<OutboxItem> items = pullOnly ? Array.Empty<OutboxItem>() : await _outbox.GetDueAsync(200, ct);
             var ackIds = await _outbox.GetPendingResolutionAckIdsAsync(ct);
             var batchByEntity = items.GroupBy(x => x.EntityType).ToDictionary(x => x.Key, x => x.Count());
 
@@ -100,7 +101,30 @@ public sealed class SyncEngine : IAsyncDisposable
                 if (ackIds.Count > 0)
                     await _outbox.MarkResolutionAcksSentAsync(ackIds, ct);
 
-                await _outbox.MarkAcceptedAsync(result.Accepted, ct);
+                var wholeBatchAccepted = result.Conflicts.Count == 0 && result.Accepted.Count == items.Count;
+                var acknowledge = await _outbox.MarkAcceptedAsync(items, result.Accepted, wholeBatchAccepted, ct);
+                await AgentLog.InfoAsync("sync.ack", "accepted outbox rows acknowledged locally", new
+                {
+                    sent = acknowledge.Sent,
+                    accepted = acknowledge.Accepted,
+                    matched = acknowledge.Matched,
+                    deleted = acknowledge.Deleted,
+                    whole_batch_fallback = acknowledge.WholeBatchFallbackUsed,
+                    unmatched_accepted = acknowledge.UnmatchedAcceptedKeys,
+                }, correlationId);
+
+                if (acknowledge.Deleted != result.Accepted.Count)
+                {
+                    await AgentLog.WarnAsync("sync.ack", "server accepted items but local outbox acknowledgement count differs", new
+                    {
+                        accepted = result.Accepted.Count,
+                        deleted = acknowledge.Deleted,
+                        matched = acknowledge.Matched,
+                        first_sent = items.Take(3).Select(x => new { outbox_id = x.Id, entity = x.EntityType, entity_id = x.EntityId }).ToArray(),
+                        first_accepted = result.Accepted.Take(3).Select(x => new { entity = x.Entity, id = x.Id, version = x.Version }).ToArray(),
+                    }, correlationId);
+                }
+
                 await _outbox.MarkConflictsAsync(result.Conflicts, ct);
                 await _applier.ApplyAsync(result.RemoteChanges, correlationId, ct);
                 await _applier.ApplyConflictResolutionsAsync(result.Resolutions, correlationId, ct);
@@ -111,8 +135,10 @@ public sealed class SyncEngine : IAsyncDisposable
 
                 var queueAfter = await _outbox.GetQueueDiagnosticsAsync(ct);
                 conflictCount = await _outbox.CountConflictsAsync(ct);
-                var message = (queueAfter.Total == 0 ? "همگام‌سازی کامل" : "همگام‌سازی انجام شد؛ مواردی در صف باقی مانده")
-                    + $" · ارسال {result.Accepted.Count} · دریافت {result.RemoteChanges.Count}";
+                var message = pullOnly
+                    ? $"بازخوانی تنظیمات کامل شد · دریافت {result.RemoteChanges.Count}"
+                    : (queueAfter.Total == 0 ? "همگام‌سازی کامل" : "همگام‌سازی انجام شد؛ مواردی در صف باقی مانده")
+                        + $" · ارسال {result.Accepted.Count} · دریافت {result.RemoteChanges.Count}";
                 Set(new SyncStatus("ok", message, now, queueAfter.Total, conflictCount));
 
                 await AgentLog.InfoAsync("sync", "sync cycle completed", new

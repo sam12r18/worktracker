@@ -3,7 +3,7 @@ namespace App\Http\Controllers\WorkTracker;
 use App\Http\Controllers\Controller; use App\Models\{ActivitySession,ActivityType,BillingRateSnapshot,Project,WorkTrackerAuditLog}; use App\Services\WorkTrackerAuditService; use Carbon\CarbonImmutable; use Illuminate\Http\{Request,RedirectResponse}; use Illuminate\Support\Facades\DB; use Illuminate\Validation\Rule; use Illuminate\View\View;
 class ActivityHistoryController extends Controller {
  public function index(Request $request):View {
-  $uid=$request->user()->getKey(); $tz=(string)($request->query('timezone')?:config('app.timezone','UTC')); $date=(string)($request->query('date')?:now($tz)->toDateString()); $start=CarbonImmutable::parse($date,$tz)->startOfDay();$end=$start->addDay();
+  $uid=$request->user()->getKey(); $tz=(string)($request->query('timezone')?:config('worktracker.display_timezone','Asia/Tehran')); $date=(string)($request->query('date')?:now($tz)->toDateString()); $start=CarbonImmutable::parse($date,$tz)->startOfDay();$end=$start->addDay();
   $q=ActivitySession::query()->where('user_id',$uid)->where('ended_at','>',$start)->where('started_at','<',$end)->with(['project:id,name','activityType:id,name','device:id,name,operator_label'])->orderBy('started_at');
   if($request->filled('project_id'))$q->where('project_id',$request->query('project_id'));
   $activities=$q->get(); $billed=BillingRateSnapshot::query()->whereIn('activity_session_id',$activities->pluck('id'))->pluck('activity_session_id')->flip();

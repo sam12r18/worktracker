@@ -5,14 +5,16 @@
     <SolidColorBrush x:Key="WtPanelBrush" Color="#121A2B"/>
     <SolidColorBrush x:Key="WtPanelAltBrush" Color="#172033"/>
     <SolidColorBrush x:Key="WtInputBrush" Color="#0D1424"/>
-    <SolidColorBrush x:Key="WtHoverBrush" Color="#1C2941"/>
-    <SolidColorBrush x:Key="WtSelectedBrush" Color="#263A65"/>
+    <SolidColorBrush x:Key="WtHoverBrush" Color="#17243A"/>
+    <SolidColorBrush x:Key="WtSelectedBrush" Color="#223556"/>
+    <SolidColorBrush x:Key="WtPressedBrush" Color="#1D2B43"/>
     <SolidColorBrush x:Key="WtBorderBrush" Color="#2A3854"/>
     <SolidColorBrush x:Key="WtBorderStrongBrush" Color="#3A4C6E"/>
     <SolidColorBrush x:Key="WtTextBrush" Color="#E6EDF7"/>
     <SolidColorBrush x:Key="WtMutedBrush" Color="#92A0B5"/>
     <SolidColorBrush x:Key="WtPrimaryBrush" Color="#5B8FFF"/>
-    <SolidColorBrush x:Key="WtPrimaryHoverBrush" Color="#6EA8FE"/>
+    <SolidColorBrush x:Key="WtPrimaryHoverBrush" Color="#527FE0"/>
+    <SolidColorBrush x:Key="WtPrimaryPressedBrush" Color="#416BC5"/>
     <SolidColorBrush x:Key="WtPrimarySoftBrush" Color="#172A4F"/>
     <SolidColorBrush x:Key="WtSuccessBrush" Color="#56D364"/>
     <SolidColorBrush x:Key="WtWarningBrush" Color="#E3B341"/>
@@ -54,16 +56,40 @@
         <Setter Property="BorderBrush" Value="{StaticResource WtBorderStrongBrush}"/>
         <Setter Property="BorderThickness" Value="1"/>
         <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="ButtonSurface"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="6"
+                            SnapsToDevicePixels="True">
+                        <ContentPresenter Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="{TemplateBinding VerticalContentAlignment}"
+                                          RecognizesAccessKey="True"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="HorizontalContentAlignment" Value="Center"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
         <Style.Triggers>
             <Trigger Property="IsMouseOver" Value="True">
                 <Setter Property="Background" Value="{StaticResource WtHoverBrush}"/>
-                <Setter Property="BorderBrush" Value="#58719A"/>
+                <Setter Property="BorderBrush" Value="#405575"/>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{StaticResource WtPressedBrush}"/>
+                <Setter Property="BorderBrush" Value="#4A6083"/>
             </Trigger>
             <Trigger Property="IsKeyboardFocused" Value="True">
                 <Setter Property="BorderBrush" Value="{StaticResource WtPrimaryBrush}"/>
             </Trigger>
             <Trigger Property="IsEnabled" Value="False">
-                <Setter Property="Opacity" Value="0.45"/>
+                <Setter Property="Opacity" Value="0.42"/>
             </Trigger>
         </Style.Triggers>
     </Style>
@@ -76,6 +102,26 @@
             <Trigger Property="IsMouseOver" Value="True">
                 <Setter Property="Background" Value="{StaticResource WtPrimaryHoverBrush}"/>
                 <Setter Property="BorderBrush" Value="{StaticResource WtPrimaryHoverBrush}"/>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="{StaticResource WtPrimaryPressedBrush}"/>
+                <Setter Property="BorderBrush" Value="{StaticResource WtPrimaryPressedBrush}"/>
+            </Trigger>
+        </Style.Triggers>
+    </Style>
+
+    <Style x:Key="WtDangerButton" TargetType="Button" BasedOn="{StaticResource {x:Type Button}}">
+        <Setter Property="Background" Value="#2B1820"/>
+        <Setter Property="Foreground" Value="#FFB4AE"/>
+        <Setter Property="BorderBrush" Value="#60303A"/>
+        <Style.Triggers>
+            <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="#371D26"/>
+                <Setter Property="BorderBrush" Value="#75404B"/>
+            </Trigger>
+            <Trigger Property="IsPressed" Value="True">
+                <Setter Property="Background" Value="#42222D"/>
+                <Setter Property="BorderBrush" Value="#87505B"/>
             </Trigger>
         </Style.Triggers>
     </Style>
@@ -213,19 +259,84 @@
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Padding" Value="9,6"/>
         <Setter Property="HorizontalContentAlignment" Value="Stretch"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="ComboBoxItem">
+                    <Border Background="{TemplateBinding Background}" CornerRadius="4">
+                        <ContentPresenter Margin="{TemplateBinding Padding}"
+                                          HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalAlignment="Center"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"/>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
         <Style.Triggers>
             <Trigger Property="IsHighlighted" Value="True">
                 <Setter Property="Background" Value="{StaticResource WtHoverBrush}"/>
             </Trigger>
             <Trigger Property="IsSelected" Value="True">
                 <Setter Property="Background" Value="{StaticResource WtSelectedBrush}"/>
-                <Setter Property="Foreground" Value="White"/>
+                <Setter Property="Foreground" Value="#EAF1FF"/>
             </Trigger>
         </Style.Triggers>
     </Style>
 
     <Style TargetType="CheckBox">
         <Setter Property="Foreground" Value="{StaticResource WtTextBrush}"/>
+        <Setter Property="VerticalContentAlignment" Value="Center"/>
+        <Setter Property="Cursor" Value="Hand"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="CheckBox">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <Grid Width="17" Height="17" Margin="0,0,7,0">
+                            <Border x:Name="CheckSurface"
+                                    Background="{StaticResource WtInputBrush}"
+                                    BorderBrush="{StaticResource WtBorderStrongBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="3"/>
+                            <Path x:Name="CheckMark"
+                                  Visibility="Collapsed"
+                                  Stroke="#DCE8FF"
+                                  StrokeThickness="2"
+                                  StrokeStartLineCap="Round"
+                                  StrokeEndLineCap="Round"
+                                  Data="M 3 8 L 7 12 L 14 4"/>
+                            <Border x:Name="IndeterminateMark"
+                                    Visibility="Collapsed"
+                                    Width="9" Height="2"
+                                    HorizontalAlignment="Center"
+                                    VerticalAlignment="Center"
+                                    Background="#DCE8FF"
+                                    CornerRadius="1"/>
+                        </Grid>
+                        <ContentPresenter VerticalAlignment="Center"
+                                          RecognizesAccessKey="True"
+                                          TextElement.Foreground="{TemplateBinding Foreground}"/>
+                    </StackPanel>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsChecked" Value="True">
+                            <Setter TargetName="CheckSurface" Property="Background" Value="{StaticResource WtPrimarySoftBrush}"/>
+                            <Setter TargetName="CheckSurface" Property="BorderBrush" Value="{StaticResource WtPrimaryBrush}"/>
+                            <Setter TargetName="CheckMark" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsChecked" Value="{x:Null}">
+                            <Setter TargetName="CheckSurface" Property="Background" Value="{StaticResource WtPrimarySoftBrush}"/>
+                            <Setter TargetName="CheckSurface" Property="BorderBrush" Value="{StaticResource WtPrimaryBrush}"/>
+                            <Setter TargetName="IndeterminateMark" Property="Visibility" Value="Visible"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="CheckSurface" Property="BorderBrush" Value="#54709A"/>
+                            <Setter TargetName="CheckSurface" Property="Background" Value="#121D30"/>
+                        </Trigger>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter Property="Opacity" Value="0.45"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style x:Key="WtCard" TargetType="Border">
@@ -509,6 +620,19 @@
                 <Setter Property="Template" Value="{StaticResource WtHorizontalScrollBarTemplate}"/>
             </Trigger>
         </Style.Triggers>
+    </Style>
+
+    <Style TargetType="Separator">
+        <Setter Property="Background" Value="{StaticResource WtBorderBrush}"/>
+        <Setter Property="Height" Value="1"/>
+        <Setter Property="Margin" Value="0,6"/>
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Separator">
+                    <Border Height="1" Background="{TemplateBinding Background}"/>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
     </Style>
 
     <Style TargetType="ToolTip">

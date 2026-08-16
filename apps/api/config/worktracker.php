@@ -15,4 +15,7 @@ return [
 
     'device_token_expiration_days' => (int) env('WORKTRACKER_DEVICE_TOKEN_DAYS', 90),
     'admin_token_expiration_days' => (int) env('WORKTRACKER_ADMIN_TOKEN_DAYS', 30),
+
+    // Keep storage/API timestamps in UTC; convert to this timezone at the UI/report boundary.
+    'display_timezone' => (string) env('WORKTRACKER_DISPLAY_TIMEZONE', 'Asia/Tehran'),
 ];
