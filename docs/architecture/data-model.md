@@ -169,3 +169,9 @@ Retry-safe queue containing server conflict ids whose resolution has been applie
 - `billing_rate_snapshots`: immutable finalized pricing snapshot keyed by Activity Session.
 
 Finalized invoice items do not rewrite Activity timestamps or durations. Invoice-period clipping is calculated only in the line item.
+
+## Derived Work Event projection (alpha.7.3)
+
+`work_events` are not a persisted table in alpha.7.3. A Work Event is derived from local raw `activity_sessions` using Project/context identity and short continuity rules. It exposes: Project, event start/end, direct seconds, bridge seconds, credited seconds and the underlying raw session ids.
+
+This deliberate non-persistence keeps correction and Rule learning anchored to raw auditable records. Server-side materialization is deferred until reporting/billing semantics for derived continuity credit have a dedicated audit representation.

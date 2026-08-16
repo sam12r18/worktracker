@@ -121,7 +121,7 @@ class HealthController extends Controller
         return response()->json([
             'status' => $ok ? 'ok' : 'fail',
             'app' => 'WorkTracker',
-            'version' => '0.1.0-alpha.7.2',
+            'version' => '0.1.0-alpha.7.3',
             'environment' => app()->environment(),
             'php' => PHP_VERSION,
             'laravel' => app()->version(),

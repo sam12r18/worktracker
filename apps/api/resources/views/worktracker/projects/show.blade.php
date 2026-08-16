@@ -69,17 +69,64 @@
 </div>
 
 <x-worktracker.panel style="margin-top:14px">
-    <div class="wt-section-title"><h3 style="margin:0">Ruleهای تشخیص پروژه</h3><x-worktracker.help title="Rule تشخیص پروژه"><p>Agent هنگام بستن یک foreground session، Ruleهای فعال را وزن‌دهی می‌کند. Rule قوی‌تر/اولویت بالاتر احتمال انتخاب این پروژه را افزایش می‌دهد.</p><p>برای الگوهای Regex فقط وقتی لازم است استفاده کن؛ Ruleهای contains/equals قابل پیش‌بینی‌تر هستند.</p></x-worktracker.help></div>
-    <form method="post" action="{{ route('worktracker.projects.rules.store',$project) }}" class="wt-form wt-form-grid" style="margin-bottom:14px">
+    <div class="wt-section-title">
+        <h3 style="margin:0">Ruleهای تشخیص پروژه</h3>
+        <x-worktracker.help title="Rule تشخیص پروژه">
+            <p>Rule باید یک الگوی پایدار از Context کاری باشد، نه عنوان کامل یک فایل یا تب. برای مثال در PhpStorm بهتر است به‌جای <code>Ketabnow2 – README.md</code> از <code>WindowTitle contains Ketabnow2</code> استفاده شود.</p>
+            <p>بخش «آزمایش روی فعالیت‌های اخیر» نشان می‌دهد Rule پیشنهادی در ۷ روز اخیر چه عنوان‌هایی را Match می‌کند و آیا با پروژه‌های دیگر تداخل دارد.</p>
+        </x-worktracker.help>
+    </div>
+
+    <form method="post" action="{{ route('worktracker.projects.rules.store',$project) }}" class="wt-form wt-form-grid" id="rule-builder" style="margin-bottom:14px">
         @csrf
-        <label>نوع<select name="rule_type"><option value="ProcessName">Process name</option><option value="WindowTitle">Window title</option><option value="ExecutablePath">Executable path</option><option value="Path">Path</option><option value="Keyword">Keyword</option></select></label>
-        <label>عملگر<select name="operator"><option value="contains">contains</option><option value="equals">equals</option><option value="starts_with">starts_with</option><option value="ends_with">ends_with</option><option value="regex">regex</option></select></label>
-        <label>Pattern<input name="pattern" required class="wt-ltr"></label>
-        <label>Weight<input name="weight" type="number" value="50" min="1" max="200" required></label>
+        <label>
+            نوع
+            <select name="rule_type" id="rule-type">
+                <option value="ProcessName">Process name</option>
+                <option value="WindowTitle" selected>Window title</option>
+                <option value="ExecutablePath">Executable path</option>
+                <option value="Path">Path</option>
+                <option value="Keyword">Keyword</option>
+            </select>
+        </label>
+        <label>
+            عملگر
+            <select name="operator" id="rule-operator">
+                <option value="contains" selected>contains</option>
+                <option value="equals">equals</option>
+                <option value="starts_with">starts_with</option>
+                <option value="ends_with">ends_with</option>
+                <option value="regex">regex</option>
+            </select>
+        </label>
+        <label>
+            Pattern
+            <input name="pattern" id="rule-pattern" required class="wt-ltr" placeholder="مثال: Ketabnow2">
+        </label>
+        <label>
+            نمونه عنوان پنجره
+            <input id="rule-sample-title" class="wt-ltr" placeholder="Ketabnow2 – README.md">
+        </label>
+        <label>Weight<input name="weight" type="number" value="80" min="1" max="200" required></label>
         <label>Priority<input name="priority" type="number" value="0" min="-100000" max="100000" required></label>
         <label class="wt-check"><input type="checkbox" name="is_enabled" value="1" checked> فعال</label>
-        <button>افزودن Rule</button>
+        <div class="wt-row" style="gap:8px;align-items:end">
+            <button type="button" id="suggest-rule-pattern">پیشنهاد الگوی پایدار</button>
+            <button>افزودن Rule</button>
+        </div>
     </form>
+
+    <div class="wt-form-card" style="margin-bottom:14px">
+        <div class="wt-row" style="justify-content:space-between;gap:12px;align-items:center">
+            <div>
+                <strong>آزمایش Rule روی فعالیت‌های اخیر</strong>
+                <div class="wt-muted">حداکثر ۱۰۰ Context اخیر در ۷ روز گذشته بررسی می‌شود؛ این Preview فقط برای تشخیص تداخل است و چیزی را تغییر نمی‌دهد.</div>
+            </div>
+            <span id="rule-preview-summary" class="wt-badge">Pattern را وارد کن</span>
+        </div>
+        <div id="rule-preview-details" class="wt-muted" style="margin-top:9px"></div>
+        <div id="rule-preview-samples" class="wt-ltr" style="margin-top:9px;font-size:12px;max-height:150px;overflow:auto"></div>
+    </div>
 
     <x-worktracker.table>
         <thead><tr><th>نوع</th><th>عملگر</th><th>Pattern</th><th>Weight</th><th>Priority</th><th>فعال</th><th></th></tr></thead>
@@ -87,7 +134,8 @@
         @forelse($project->rules as $rule)
             <tr>
                 <td colspan="7">
-                    <form method="post" action="{{ route('worktracker.projects.rules.update',[$project,$rule]) }}" class="wt-inline-form">@csrf
+                    <form method="post" action="{{ route('worktracker.projects.rules.update',[$project,$rule]) }}" class="wt-inline-form">
+                        @csrf
                         <select name="rule_type">@foreach(['ProcessName','WindowTitle','ExecutablePath','Path','Keyword'] as $type)<option value="{{ $type }}" @selected($rule->rule_type===$type)>{{ $type }}</option>@endforeach</select>
                         <select name="operator">@foreach(['contains','equals','starts_with','ends_with','regex'] as $op)<option value="{{ $op }}" @selected($rule->operator===$op)>{{ $op }}</option>@endforeach</select>
                         <input name="pattern" value="{{ $rule->pattern }}" class="wt-field-grow wt-ltr" required>
@@ -96,13 +144,122 @@
                         <label class="wt-check"><input type="checkbox" name="is_enabled" value="1" @checked($rule->is_enabled)> فعال</label>
                         <button>ذخیره</button>
                     </form>
-                    <form method="post" action="{{ route('worktracker.projects.rules.destroy',[$project,$rule]) }}" style="margin-top:6px" onsubmit="return confirm('Rule حذف شود؟')">@csrf @method('DELETE')<button class="wt-danger">حذف</button></form>
+                    <form method="post" action="{{ route('worktracker.projects.rules.destroy',[$project,$rule]) }}" style="margin-top:6px" onsubmit="return confirm('Rule حذف شود؟')">
+                        @csrf
+                        @method('DELETE')
+                        <button class="wt-danger">حذف</button>
+                    </form>
                 </td>
             </tr>
-        @empty<tr><td colspan="7"><x-worktracker.empty title="Rule تعریف نشده"/></td></tr>@endforelse
+        @empty
+            <tr><td colspan="7"><x-worktracker.empty title="Rule تعریف نشده"/></td></tr>
+        @endforelse
         </tbody>
     </x-worktracker.table>
 </x-worktracker.panel>
+
+<script>
+(() => {
+    const samples = @json($recentRuleSamples->map(fn($row) => [
+        'title' => $row->window_title,
+        'process' => $row->process_name,
+        'path' => $row->executable_path,
+        'project_id' => $row->project_id,
+    ])->values());
+    const currentProjectId = @json((string) $project->id);
+    const projectHints = @json(collect([$project->code, $project->name])->filter()->values());
+    const type = document.getElementById('rule-type');
+    const operator = document.getElementById('rule-operator');
+    const pattern = document.getElementById('rule-pattern');
+    const sampleTitle = document.getElementById('rule-sample-title');
+    const summary = document.getElementById('rule-preview-summary');
+    const details = document.getElementById('rule-preview-details');
+    const sampleOutput = document.getElementById('rule-preview-samples');
+    const suggest = document.getElementById('suggest-rule-pattern');
+
+    const normalizeSample = (value) => {
+        let title = (value || '').trim();
+        const suffixes = [' - Google Chrome', ' - Microsoft Edge', ' — Mozilla Firefox', ' – PhpStorm', ' - PhpStorm', ' - Visual Studio Code'];
+        for (const suffix of suffixes) {
+            if (title.toLowerCase().endsWith(suffix.toLowerCase())) {
+                title = title.slice(0, -suffix.length).trim();
+            }
+        }
+
+        // If the selected Project name/code is visible in the title, it is a safer browser/IDE
+        // pattern than a complete tab/file title. This avoids one Rule per browser tab.
+        const projectHint = projectHints
+            .filter(hint => String(hint || '').trim().length >= 3)
+            .sort((a, b) => String(b).length - String(a).length)
+            .find(hint => title.toLocaleLowerCase().includes(String(hint).toLocaleLowerCase()));
+        if (projectHint) return String(projectHint).trim();
+
+        for (const separator of [' — ', ' – ', ' - ']) {
+            if (title.includes(separator)) {
+                const first = title.split(separator)[0].trim();
+                if (first.length >= 2) return first;
+            }
+        }
+        return title;
+    };
+
+    const valueForSample = (row) => {
+        switch (type.value) {
+            case 'ProcessName': return row.process || '';
+            case 'WindowTitle': return row.title || '';
+            case 'ExecutablePath':
+            case 'Path': return row.path || '';
+            case 'Keyword': return `${row.title || ''} ${row.path || ''}`;
+            default: return row.title || '';
+        }
+    };
+
+    const matches = (value, op, needle) => {
+        if (!value || !needle) return false;
+        const haystack = value.toLocaleLowerCase();
+        const lowered = needle.toLocaleLowerCase();
+        if (op === 'equals') return haystack === lowered;
+        if (op === 'starts_with') return haystack.startsWith(lowered);
+        if (op === 'ends_with') return haystack.endsWith(lowered);
+        if (op === 'regex') {
+            try { return new RegExp(needle, 'i').test(value); } catch (_) { return false; }
+        }
+        return haystack.includes(lowered);
+    };
+
+    const refreshPreview = () => {
+        const needle = pattern.value.trim();
+        if (!needle) {
+            summary.textContent = 'Pattern را وارد کن';
+            details.textContent = '';
+            sampleOutput.textContent = '';
+            return;
+        }
+        const matched = samples.filter(row => matches(valueForSample(row), operator.value, needle));
+        const same = matched.filter(row => String(row.project_id || '') === currentProjectId).length;
+        const other = matched.filter(row => row.project_id && String(row.project_id) !== currentProjectId).length;
+        const unknown = matched.filter(row => !row.project_id).length;
+        summary.textContent = `${matched.length} Match`;
+        details.textContent = `همین پروژه: ${same} · پروژه دیگر: ${other} · بدون پروژه: ${unknown}`;
+        summary.classList.toggle('wt-danger', other > 0);
+        sampleOutput.innerHTML = matched.slice(0, 12).map(row => `<div>${escapeHtml(row.process || '—')} · ${escapeHtml(row.title || '—')}</div>`).join('');
+    };
+
+    const escapeHtml = (value) => String(value).replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+
+    suggest.addEventListener('click', () => {
+        const candidate = normalizeSample(sampleTitle.value);
+        if (!candidate) return;
+        type.value = 'WindowTitle';
+        operator.value = 'contains';
+        pattern.value = candidate;
+        refreshPreview();
+    });
+
+    [type, operator, pattern].forEach(el => el.addEventListener('input', refreshPreview));
+    refreshPreview();
+})();
+</script>
 
 <x-worktracker.panel>
     <div class="wt-section-title"><h3 style="margin:0">Taskهای پروژه</h3><x-worktracker.help title="Task و زمان"><p>Task برای برنامه‌ریزی کار است. وضعیت Task مستقل از تایمر است؛ پایان تایمر Task را Done نمی‌کند و Done کردن Task زمان مصنوعی ایجاد نمی‌کند.</p></x-worktracker.help></div>

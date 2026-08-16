@@ -6,10 +6,10 @@ public sealed record TimeAccountingSummary(int EffortSeconds, int ElapsedCoverag
 
 public static class TimeAccountingService
 {
-    public static TimeAccountingSummary Summarize(IEnumerable<ActivitySession> sessions, DateTimeOffset rangeStart, DateTimeOffset rangeEnd)
+    public static TimeAccountingSummary Summarize(IEnumerable<ActivitySession> sessions, DateTimeOffset rangeStart, DateTimeOffset rangeEnd, int additionalEffortSeconds = 0)
     {
         var intervals = new List<(DateTimeOffset Start, DateTimeOffset End)>();
-        var effort = 0;
+        var effort = Math.Max(0, additionalEffortSeconds);
 
         foreach (var session in sessions)
         {

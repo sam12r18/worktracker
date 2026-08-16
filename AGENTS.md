@@ -17,6 +17,15 @@ Two devices may be used concurrently by two different people on the same project
 
 The auto-foreground stream on one device must remain sequential because Windows has one foreground window. This is only a capture-integrity constraint. **All legitimate activities from other sources may overlap and remain additive, including on the same user + device + project.**
 
+### Raw sessions vs Work Events (alpha.7.3)
+
+- Raw `activity_sessions` remain auditable source records; do not destructively compact them just to make the UI cleaner.
+- WPF may aggregate adjacent raw foreground sessions into a derived Work Event.
+- Same-Project switching between applications is one logical Work Event when contiguous and must not create duplicate Project credit.
+- A bounded Continuity Bridge may credit the anchor Project across an **observed** interruption of at most 120 seconds only after at least 120 seconds of direct anchor work, and must re-arm with another 120 seconds of direct anchor work before another bridge.
+- Idle, pause, sleep and unobserved gaps must never receive automatic continuity credit.
+- Continuity Bridge is derived, not a new raw source in alpha.7.3. Server reporting/billing must not silently assume bridge parity until that sub-phase is implemented.
+
 ## 2. Architecture constraints
 
 - Windows Agent: C# / .NET 10 / WPF.

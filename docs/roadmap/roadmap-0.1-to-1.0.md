@@ -29,11 +29,21 @@ Customers, Activity Types, base hourly rate card, customer multiplier × project
 ## alpha.7 — Historical correction + reporting polish
 Activity edit/audit trail, Activity Type correction, daily/weekly/monthly UX, filters, richer concurrent lanes and export refinement.
 
-## 0.2 — Browser/IDE enrichment
-Chrome/Edge extension contract, privacy allow/deny rules, active tab/domain metadata, PhpStorm/VS Code/Git adapters and explicit background-job sources.
-
-## alpha.7.2 — Admin master data + Task web foundation
+## alpha.7.2 — Admin master data + Task web foundation — completed source milestone
 Project/Customer master-data UI, Project Rule management, contextual help, Task CRUD web foundation and pricing-operations polish.
+
+## alpha.7.3 — Activity Intelligence & Work Events — current
+- Raw Activity Session vs derived Work Event separation.
+- Stable IDE Context normalization to prevent one visible event per file/tab.
+- Same-Project aggregation across applications without duplicate project credit.
+- Event-level correction and Assign + Learn using stable workspace patterns.
+- Bounded 120-second Continuity Bridge with anchor/rearm guard for short cross-Project interruptions.
+- Rule Builder pattern suggestion + recent-activity match preview.
+- Conservative explicit Debug/Test inference; ambiguous IDE foreground stays untyped.
+- Follow-up inside this workstream: server report/invoice parity for derived continuity credits.
+
+## 0.2 — Browser/IDE enrichment
+Chrome/Edge extension contract, privacy allow/deny rules, active tab/domain metadata, PhpStorm/VS Code/Git adapters, explicit IDE run/debug/test state and background-job sources.
 
 ## 0.3+
 Team roles, richer Task planning/assignees, invoice payment lifecycle, optional AI daily narrative, installer/update channel and deeper analytics.

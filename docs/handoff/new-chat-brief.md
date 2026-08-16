@@ -1,6 +1,6 @@
 # New Chat Brief — WorkTracker
 
-Baseline: **WorkTracker 0.1.0-alpha.7.2**.
+Baseline: **WorkTracker 0.1.0-alpha.7.3**.
 
 Before coding read, in order:
 1. `AGENTS.md`
@@ -8,10 +8,11 @@ Before coding read, in order:
 3. `docs/handoff/current-project-map.md`
 4. `docs/product/admin-project-customer-management.md`
 5. `docs/architecture/contextual-help.md`
-6. ADR 0004, 0005, 0008, 0009, 0010 and 0011.
+6. ADR 0004, 0005, 0008, 0009, 0010, 0011 and 0014.
 
 Key invariants:
 - Legitimate overlapping Activities are additive, including same user/device/project/time range.
+- Raw Activity Sessions are source records; Work Events are derived projections. A short Continuity Bridge may add bounded Project credit without deleting the interruption Project time.
 - Device timelines are independent; never cross-device normalize.
 - Windows remains offline-first and a Windows user may run only one WorkTracker Agent instance at a time.
 - Device Token is least-privilege, bound to its Device UUID and cannot author Billing configuration.

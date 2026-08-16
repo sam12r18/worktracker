@@ -114,6 +114,17 @@ class ProjectManagementController extends Controller
             'pricingHistory' => DB::table('project_multiplier_history')->where('project_id', $project->id)->orderByDesc('effective_from')->limit(50)->get(),
             'pricingOverrides' => PricingOverride::query()->where('user_id', $userId)->where('project_id', $project->id)->with('activityType:id,name,code')->orderByDesc('effective_from')->get(),
             'activityStats' => $activityStats,
+            'recentRuleSamples' => ActivitySession::query()
+                ->where('user_id', $userId)
+                ->whereNotNull('window_title')
+                ->where('window_title', '!=', '')
+                ->where('started_at', '>=', now()->subDays(7))
+                ->orderByDesc('started_at')
+                ->limit(300)
+                ->get(['window_title', 'process_name', 'executable_path', 'project_id'])
+                ->unique(fn ($row) => ($row->process_name ?? '') . '|' . ($row->executable_path ?? '') . '|' . $row->window_title . '|' . ($row->project_id ?? ''))
+                ->take(100)
+                ->values(),
         ]);
     }
 

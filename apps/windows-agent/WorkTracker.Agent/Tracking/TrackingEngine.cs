@@ -11,6 +11,7 @@ public sealed class TrackingEngine : IAsyncDisposable
     private readonly IIdleTimeProvider _idle;
     private readonly ActivitySessionRepository _repository;
     private readonly ProjectClassificationService _classification;
+    private readonly ActivityTypeInferenceService _activityTypeInference;
     private readonly string _userId;
     private readonly string _deviceId;
     private readonly TimeSpan _pollInterval = TimeSpan.FromSeconds(2);
@@ -21,8 +22,8 @@ public sealed class TrackingEngine : IAsyncDisposable
     private DateTimeOffset _currentStartedAt;
     private bool _paused;
 
-    public TrackingEngine(IForegroundWindowObserver foreground, IIdleTimeProvider idle, ActivitySessionRepository repository, ProjectClassificationService classification, string userId, string deviceId)
-    { _foreground=foreground; _idle=idle; _repository=repository; _classification=classification; _userId=userId; _deviceId=deviceId; }
+    public TrackingEngine(IForegroundWindowObserver foreground, IIdleTimeProvider idle, ActivitySessionRepository repository, ProjectClassificationService classification, ActivityTypeInferenceService activityTypeInference, string userId, string deviceId)
+    { _foreground=foreground; _idle=idle; _repository=repository; _classification=classification; _activityTypeInference=activityTypeInference; _userId=userId; _deviceId=deviceId; }
 
     public TrackingState State { get; private set; } = TrackingState.Paused;
     public event EventHandler? StateChanged;
@@ -55,8 +56,12 @@ public sealed class TrackingEngine : IAsyncDisposable
     {
         if(_current is null)return; var start=_currentStartedAt; if(end<start)end=start; var duration=(int)Math.Floor((end-start).TotalSeconds); var snapshot=_current; _current=null; ForegroundChanged?.Invoke(this,null); if(duration<2)return;
         var resolution=await _classification.ResolveAsync(snapshot,ct);
+        var activityType=await _activityTypeInference.ResolveAsync(snapshot,ct);
+        var reasons = new List<string>();
+        if (resolution is not null) reasons.AddRange(resolution.Reasons); else reasons.Add("unclassified");
+        if (activityType is not null) reasons.Add($"activity_type:{activityType.Reason}");
         var session=new ActivitySession(Guid.NewGuid().ToString(),_userId,_deviceId,resolution?.ProjectId,null,ActivitySource.AutoForeground,
-            snapshot.ProcessName,snapshot.ExecutablePath,snapshot.WindowTitle,resolution?.Confidence,resolution is null?"unclassified":string.Join("; ",resolution.Reasons),start,end,duration,0,null);
+            snapshot.ProcessName,snapshot.ExecutablePath,snapshot.WindowTitle,resolution?.Confidence,string.Join("; ",reasons),start,end,duration,0,null,activityType?.ActivityTypeId);
         await _repository.AddAsync(session,ct); SessionSaved?.Invoke(this,session);
     }
 

@@ -1,6 +1,6 @@
-# Current Project Map — WorkTracker 0.1.0-alpha.7.2
+# Current Project Map — WorkTracker 0.1.0-alpha.7.3
 
-Verified against the alpha.7.2 source tree on 2026-08-15.
+Verified against the alpha.7.3 source tree on 2026-08-16.
 
 ## Repository root
 - `AGENTS.md` — mandatory invariants and development discipline.
@@ -13,11 +13,13 @@ Verified against the alpha.7.2 source tree on 2026-08-15.
 ## Windows Agent
 Important areas:
 - `App.xaml.cs` — startup, single-instance mutex and explicit WPF `MessageBox` alias.
-- `Tracking/` — foreground + idle capture.
+- `Tracking/` — foreground + idle capture plus application Context normalization.
 - `Classification/ProjectResolver.cs` — deterministic Rule matching including contains/equals/starts_with/ends_with/regex.
+- `Classification/ActivityTypeInferenceService.cs` — conservative explicit Debug/Test inference only.
+- `Services/WorkEventAggregationService.cs` — derived Work Events, same-Project aggregation and bounded continuity bridge projection.
 - `Storage/` — SQLite schema/repositories and additive upgrade columns; `project_rules.operator` is auto-added to existing local DBs.
 - `Sync/` — outbox, Sanctum API client, Project/Rule/Billing Pull and conflict handling.
-- `MainWindow.xaml(.cs)` — shell including Sync settings and Device UUID copy action.
+- `MainWindow.xaml(.cs)` — Work Event timeline/correction, Sync diagnostics/settings and Device UUID copy action.
 - `Themes/WorkTrackerTheme.xaml` — shared dark WPF theme.
 
 ## Laravel web/admin
@@ -46,6 +48,7 @@ Authenticated web routes include:
 - `/worktracker/audit`
 - `/worktracker/invoices`
 - `/worktracker/conflicts`
+- `/worktracker/diagnostics`
 
 ## API
 Device bootstrap/sync:
@@ -62,5 +65,8 @@ Admin API additionally exposes Projects, Customers, project Tasks, Devices, Acti
 5. Agent registers then syncs using Bearer authentication.
 6. Revoking the token immediately prevents further authenticated sync.
 
+## Documentation audit
+- `docs/review/alpha7.3-source-documentation-audit.md` — source ↔ documentation alignment and deliberate open gaps.
+
 ## Scope boundary
-Team/organization/RBAC administration is not part of alpha.7.2. Do not bolt it onto Customer/Project ownership without a dedicated ownership/security design.
+Team/organization/RBAC administration is not part of alpha.7.3. Do not bolt it onto Customer/Project ownership without a dedicated ownership/security design.

@@ -50,3 +50,13 @@ Concurrency metrics are descriptive. Do not label them as productivity, efficien
 ## Idle
 
 After the configured idle threshold, foreground auto tracking stops accumulating active foreground time. Manual/call/meeting activities may continue if explicitly active because a user can be working away from keyboard.
+
+## Derived Work Events and short continuity credits (alpha.7.3)
+
+Raw automatic foreground sessions remain sequential on a device, but WPF can project multiple sessions into one Work Event. Event aggregation never removes the underlying sessions.
+
+A short observed interruption may create a **Continuity Bridge** for the anchor Project when the user returns within 120 seconds after at least 120 seconds of direct anchor work. The interrupted Project retains its direct time, so the bridge intentionally increases additive Effort without increasing elapsed Coverage. Idle, pause, sleep and unobserved gaps are never bridged.
+
+Same-Project application switching is different: if PhpStorm Project A is followed by Browser Project A, both segments are direct Project A time and are merged into one Work Event without duplicate credit.
+
+The alpha.7.3 Windows Agent includes bridge seconds in its local Effort/Concurrent summary. Server-side report and finalized-invoice parity is a follow-up and must not be assumed until implemented. See ADR 0014.

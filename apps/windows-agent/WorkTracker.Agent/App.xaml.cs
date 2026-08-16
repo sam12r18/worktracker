@@ -55,6 +55,7 @@ public partial class App : System.Windows.Application
             var projects = new ProjectRepository(database);
             var activityTypes = new ActivityTypeRepository(database);
             var classifier = new ProjectClassificationService(projects);
+            var activityTypeInference = new ActivityTypeInferenceService(activityTypes);
             var corrections = new ActivityCorrectionService(repository, classifier);
             var syncSettings = new SyncSettingsStore(database);
             // Apply one-time sync protocol migrations (including checkpoint reset) before
@@ -77,6 +78,7 @@ public partial class App : System.Windows.Application
                 new WindowsIdleTimeProvider(),
                 repository,
                 classifier,
+                activityTypeInference,
                 userId,
                 deviceId);
 

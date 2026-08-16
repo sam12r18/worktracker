@@ -15,4 +15,14 @@ public sealed class ActivityCorrectionService(ActivitySessionRepository activiti
         await classifier.LearnFromAsync(projectId, snapshot, ProjectRuleType.WindowTitle, ct);
         return corrected;
     }
+
+    public async Task<IReadOnlyList<ActivitySession>> AssignEventAsync(IReadOnlyList<ActivitySession> sessions, string projectId, bool learnWindowTitle, CancellationToken ct = default)
+    {
+        var source = sessions.Where(x => x.Source == ActivitySource.AutoForeground).ToList();
+        if (source.Count == 0) source = sessions.ToList();
+        var corrected = await activities.AssignProjectsAsync(source.Select(x => x.Id), projectId, learnWindowTitle ? "user_event_correction+learned_rule" : "user_event_correction", 1.0, ct);
+        if (learnWindowTitle && corrected.Count > 0)
+            await classifier.LearnFromSessionsAsync(projectId, corrected, ct);
+        return corrected;
+    }
 }

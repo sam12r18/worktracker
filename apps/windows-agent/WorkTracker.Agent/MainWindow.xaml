@@ -94,13 +94,13 @@
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
                     <DockPanel>
-                        <TextBlock Text="Timeline امروز — هم‌پوشانی‌ها مستقل و additive هستند." FontWeight="SemiBold"/>
+                        <TextBlock Text="Timeline امروز — بخش‌های foreground به رویداد کاری تجمیع می‌شوند و هم‌پوشانی additive حفظ می‌شود." FontWeight="SemiBold"/>
                         <StackPanel DockPanel.Dock="Left" Orientation="Horizontal">
                             <ComboBox x:Name="TimelineActivityTypeCombo"
                                       Width="150"
                                       DisplayMemberPath="Name"
                                       SelectedValuePath="Id"
-                                      ToolTip="نوع فعالیت برای ردیف انتخاب‌شده"/>
+                                      ToolTip="نوع فعالیت برای تمام بخش‌های رویداد انتخاب‌شده"/>
                             <CheckBox x:Name="TimelineBillableCheckBox"
                                       IsThreeState="True"
                                       IsChecked="{x:Null}"
@@ -120,7 +120,8 @@
                                 <GridViewColumn Header="نوع فعالیت" Width="130" DisplayMemberBinding="{Binding ActivityType}"/>
                                 <GridViewColumn Header="عنوان / توضیح" Width="360" DisplayMemberBinding="{Binding Title}"/>
                                 <GridViewColumn Header="مدت" Width="90" DisplayMemberBinding="{Binding Duration}"/>
-                                <GridViewColumn Header="منبع" Width="100" DisplayMemberBinding="{Binding Source}"/>
+                                <GridViewColumn Header="جزئیات" Width="190" DisplayMemberBinding="{Binding Detail}"/>
+                                <GridViewColumn Header="منبع" Width="150" DisplayMemberBinding="{Binding Source}"/>
                             </GridView>
                         </ListView.View>
                     </ListView>
@@ -139,7 +140,7 @@
                             <ColumnDefinition Width="210"/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Text="یک Activity را انتخاب کن، پروژه را تعیین کن؛ در صورت تمایل از عنوان پنجره Rule بساز."
+                        <TextBlock Text="یک رویداد را انتخاب کن و پروژه را تعیین کن؛ «یادگیری» برای IDE از الگوی پایدار Workspace استفاده می‌کند، نه نام هر فایل."
                                    VerticalAlignment="Center"/>
                         <ComboBox x:Name="UnknownProjectCombo"
                                   Grid.Column="1"
@@ -159,6 +160,7 @@
                                 <GridViewColumn Header="برنامه" Width="150" DisplayMemberBinding="{Binding Application}"/>
                                 <GridViewColumn Header="عنوان پنجره" Width="520" DisplayMemberBinding="{Binding Title}"/>
                                 <GridViewColumn Header="مدت" Width="100" DisplayMemberBinding="{Binding Duration}"/>
+                                <GridViewColumn Header="جزئیات" Width="190" DisplayMemberBinding="{Binding Detail}"/>
                             </GridView>
                         </ListView.View>
                     </ListView>
@@ -178,8 +180,8 @@
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
                         <StackPanel VerticalAlignment="Center">
-                            <TextBlock Text="فعالیت‌های دارای پروژه" FontWeight="SemiBold"/>
-                            <TextBlock Text="برای اصلاح تشخیص، ردیف را انتخاب کن و پروژه جدید را تعیین کن. یادگیری، Rule جدید را از عنوان همان پنجره می‌سازد."
+                            <TextBlock Text="رویدادهای دارای پروژه" FontWeight="SemiBold"/>
+                            <TextBlock Text="برای اصلاح تشخیص، رویداد را انتخاب کن و پروژه جدید را تعیین کن. اصلاح روی تمام بخش‌های همان رویداد اعمال می‌شود و یادگیری الگوی پایدار Context را می‌سازد."
                                        Margin="0,3,0,0"
                                        FontSize="11"
                                        Opacity="0.65"/>
@@ -205,8 +207,9 @@
                                 <GridViewColumn Header="برنامه" Width="145" DisplayMemberBinding="{Binding Application}"/>
                                 <GridViewColumn Header="پروژه فعلی" Width="180" DisplayMemberBinding="{Binding Project}"/>
                                 <GridViewColumn Header="نوع فعالیت" Width="130" DisplayMemberBinding="{Binding ActivityType}"/>
-                                <GridViewColumn Header="عنوان پنجره" Width="430" DisplayMemberBinding="{Binding Title}"/>
+                                <GridViewColumn Header="عنوان / Context" Width="360" DisplayMemberBinding="{Binding Title}"/>
                                 <GridViewColumn Header="مدت" Width="90" DisplayMemberBinding="{Binding Duration}"/>
+                                <GridViewColumn Header="جزئیات" Width="190" DisplayMemberBinding="{Binding Detail}"/>
                             </GridView>
                         </ListView.View>
                     </ListView>

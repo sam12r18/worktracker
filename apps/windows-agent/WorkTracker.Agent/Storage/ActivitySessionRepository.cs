@@ -24,41 +24,7 @@ public sealed class ActivitySessionRepository(LocalDatabase database)
             """;
         Bind(cmd, session);
         await cmd.ExecuteNonQueryAsync(cancellationToken);
-
-        await using var outbox = connection.CreateCommand();
-        outbox.Transaction = (SqliteTransaction)transaction;
-        outbox.CommandText = """
-            INSERT INTO sync_outbox(id,entity_type,entity_id,operation,payload_json,created_at)
-            VALUES($id,'activity_session',$entity_id,'upsert',$payload,$created_at);
-            """;
-        outbox.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
-        outbox.Parameters.AddWithValue("$entity_id", session.Id);
-        var syncPayload = new
-        {
-            id = session.Id,
-            device_id = session.DeviceId,
-            project_id = session.ProjectId,
-            task_id = session.TaskId,
-            activity_type_id = session.ActivityTypeId,
-            is_billable = session.IsBillable,
-            source = session.Source.ToStorageValue(),
-            process_name = session.ProcessName,
-            executable_path = session.ExecutablePath,
-            window_title = session.WindowTitle,
-            classification_confidence = session.ClassificationConfidence,
-            classification_reason = session.ClassificationReason,
-            started_at = session.StartedAt.ToUniversalTime().ToString("O"),
-            ended_at = session.EndedAt.ToUniversalTime().ToString("O"),
-            duration_seconds = session.DurationSeconds,
-            idle_seconds = session.IdleSeconds,
-            note = session.Note,
-            version = session.Version,
-            created_at_device = DateTimeOffset.UtcNow.ToString("O"),
-            updated_at_device = DateTimeOffset.UtcNow.ToString("O")
-        };
-        outbox.Parameters.AddWithValue("$payload", System.Text.Json.JsonSerializer.Serialize(syncPayload));
-        outbox.Parameters.AddWithValue("$created_at", DateTimeOffset.UtcNow.ToString("O"));
-        await outbox.ExecuteNonQueryAsync(cancellationToken);
+        await QueueSessionOutboxAsync(connection, (SqliteTransaction)transaction, session, clearExisting: false, includeCreatedAtDevice: true, ct: cancellationToken);
         await transaction.CommitAsync(cancellationToken);
     }
 
@@ -81,7 +47,6 @@ public sealed class ActivitySessionRepository(LocalDatabase database)
         return result;
     }
 
-
     public async Task<IReadOnlyList<ActivitySession>> GetUnknownForLocalDayAsync(DateTime localDay, CancellationToken cancellationToken = default)
     {
         var all = await GetForLocalDayAsync(localDay, cancellationToken);
@@ -90,35 +55,77 @@ public sealed class ActivitySessionRepository(LocalDatabase database)
 
     public async Task<ActivitySession?> AssignProjectAsync(string sessionId, string projectId, string reason = "user_correction", double confidence = 1.0, CancellationToken cancellationToken = default)
     {
+        var updated = await AssignProjectsAsync([sessionId], projectId, reason, confidence, cancellationToken);
+        return updated.FirstOrDefault();
+    }
+
+    public async Task<IReadOnlyList<ActivitySession>> AssignProjectsAsync(IEnumerable<string> sessionIds, string projectId, string reason = "user_correction", double confidence = 1.0, CancellationToken cancellationToken = default)
+    {
+        var ids = sessionIds.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (ids.Count == 0) return [];
+
         await using var connection = database.OpenConnection();
         await using var tx = await connection.BeginTransactionAsync(cancellationToken);
-        await using var update = connection.CreateCommand();
-        update.Transaction = (SqliteTransaction)tx;
-        update.CommandText = "UPDATE activity_sessions SET project_id=$project, classification_confidence=$confidence, classification_reason=$reason, version=version+1, sync_state='pending', updated_at_device=$updated WHERE id=$id";
-        update.Parameters.AddWithValue("$project", projectId); update.Parameters.AddWithValue("$confidence", confidence); update.Parameters.AddWithValue("$reason", reason); update.Parameters.AddWithValue("$updated", DateTimeOffset.UtcNow.ToString("O")); update.Parameters.AddWithValue("$id", sessionId);
-        if (await update.ExecuteNonQueryAsync(cancellationToken) == 0) { await tx.RollbackAsync(cancellationToken); return null; }
-        await using var select = connection.CreateCommand(); select.Transaction=(SqliteTransaction)tx; select.CommandText="SELECT * FROM activity_sessions WHERE id=$id"; select.Parameters.AddWithValue("$id",sessionId);
-        await using var reader=await select.ExecuteReaderAsync(cancellationToken); if(!await reader.ReadAsync(cancellationToken)){await tx.RollbackAsync(cancellationToken);return null;} var session=Read(reader); await reader.DisposeAsync();
-        await using var clearOutbox=connection.CreateCommand(); clearOutbox.Transaction=(SqliteTransaction)tx; clearOutbox.CommandText="DELETE FROM sync_outbox WHERE entity_type='activity_session' AND entity_id=$entity"; clearOutbox.Parameters.AddWithValue("$entity",session.Id); await clearOutbox.ExecuteNonQueryAsync(cancellationToken);
-        await using var outbox=connection.CreateCommand(); outbox.Transaction=(SqliteTransaction)tx; outbox.CommandText="INSERT INTO sync_outbox(id,entity_type,entity_id,operation,payload_json,created_at) VALUES($oid,'activity_session',$entity,'upsert',$payload,$created)";
-        outbox.Parameters.AddWithValue("$entity",session.Id); outbox.Parameters.AddWithValue("$oid",Guid.NewGuid().ToString("N"));
-        var payload=new { id=session.Id, device_id=session.DeviceId, project_id=session.ProjectId, task_id=session.TaskId, activity_type_id=session.ActivityTypeId, is_billable=session.IsBillable, source=session.Source.ToStorageValue(), process_name=session.ProcessName, executable_path=session.ExecutablePath, window_title=session.WindowTitle, classification_confidence=session.ClassificationConfidence, classification_reason=session.ClassificationReason, started_at=session.StartedAt.ToUniversalTime().ToString("O"), ended_at=session.EndedAt.ToUniversalTime().ToString("O"), duration_seconds=session.DurationSeconds, idle_seconds=session.IdleSeconds, note=session.Note, version=session.Version, updated_at_device=DateTimeOffset.UtcNow.ToString("O") };
-        outbox.Parameters.AddWithValue("$payload",System.Text.Json.JsonSerializer.Serialize(payload)); outbox.Parameters.AddWithValue("$created",DateTimeOffset.UtcNow.ToString("O")); await outbox.ExecuteNonQueryAsync(cancellationToken);
-        await tx.CommitAsync(cancellationToken); return session;
+        var updatedAt = DateTimeOffset.UtcNow.ToString("O");
+        var result = new List<ActivitySession>();
+
+        foreach (var id in ids)
+        {
+            await using var update = connection.CreateCommand();
+            update.Transaction = (SqliteTransaction)tx;
+            update.CommandText = "UPDATE activity_sessions SET project_id=$project, classification_confidence=$confidence, classification_reason=$reason, version=version+1, sync_state='pending', updated_at_device=$updated WHERE id=$id";
+            update.Parameters.AddWithValue("$project", projectId);
+            update.Parameters.AddWithValue("$confidence", confidence);
+            update.Parameters.AddWithValue("$reason", reason);
+            update.Parameters.AddWithValue("$updated", updatedAt);
+            update.Parameters.AddWithValue("$id", id);
+            if (await update.ExecuteNonQueryAsync(cancellationToken) == 0) continue;
+
+            var session = await ReadByIdAsync(connection, (SqliteTransaction)tx, id, cancellationToken);
+            if (session is null) continue;
+            await QueueSessionOutboxAsync(connection, (SqliteTransaction)tx, session, clearExisting: true, includeCreatedAtDevice: false, ct: cancellationToken);
+            result.Add(session);
+        }
+
+        await tx.CommitAsync(cancellationToken);
+        return result;
     }
 
     public async Task<ActivitySession?> AssignActivityTypeAsync(string sessionId, string activityTypeId, bool? isBillable, CancellationToken cancellationToken = default)
     {
-        await using var connection = database.OpenConnection(); await using var tx = await connection.BeginTransactionAsync(cancellationToken);
-        await using var update = connection.CreateCommand(); update.Transaction=(SqliteTransaction)tx;
-        update.CommandText="UPDATE activity_sessions SET activity_type_id=$type,is_billable=$billable,version=version+1,sync_state='pending',updated_at_device=$updated WHERE id=$id";
-        update.Parameters.AddWithValue("$type",activityTypeId); update.Parameters.AddWithValue("$billable",isBillable.HasValue?(object)(isBillable.Value?1:0):DBNull.Value); update.Parameters.AddWithValue("$updated",DateTimeOffset.UtcNow.ToString("O")); update.Parameters.AddWithValue("$id",sessionId);
-        if(await update.ExecuteNonQueryAsync(cancellationToken)==0){await tx.RollbackAsync(cancellationToken);return null;}
-        await using var select=connection.CreateCommand();select.Transaction=(SqliteTransaction)tx;select.CommandText="SELECT * FROM activity_sessions WHERE id=$id";select.Parameters.AddWithValue("$id",sessionId);await using var reader=await select.ExecuteReaderAsync(cancellationToken);if(!await reader.ReadAsync(cancellationToken)){await tx.RollbackAsync(cancellationToken);return null;}var session=Read(reader);await reader.DisposeAsync();
-        await using var clear=connection.CreateCommand();clear.Transaction=(SqliteTransaction)tx;clear.CommandText="DELETE FROM sync_outbox WHERE entity_type='activity_session' AND entity_id=$id";clear.Parameters.AddWithValue("$id",session.Id);await clear.ExecuteNonQueryAsync(cancellationToken);
-        await using var outbox=connection.CreateCommand();outbox.Transaction=(SqliteTransaction)tx;outbox.CommandText="INSERT INTO sync_outbox(id,entity_type,entity_id,operation,payload_json,created_at) VALUES($oid,'activity_session',$entity,'upsert',$payload,$created)";outbox.Parameters.AddWithValue("$oid",Guid.NewGuid().ToString("N"));outbox.Parameters.AddWithValue("$entity",session.Id);
-        var payload=new{id=session.Id,device_id=session.DeviceId,project_id=session.ProjectId,task_id=session.TaskId,activity_type_id=session.ActivityTypeId,is_billable=session.IsBillable,source=session.Source.ToStorageValue(),process_name=session.ProcessName,executable_path=session.ExecutablePath,window_title=session.WindowTitle,classification_confidence=session.ClassificationConfidence,classification_reason=session.ClassificationReason,started_at=session.StartedAt.ToUniversalTime().ToString("O"),ended_at=session.EndedAt.ToUniversalTime().ToString("O"),duration_seconds=session.DurationSeconds,idle_seconds=session.IdleSeconds,note=session.Note,version=session.Version,updated_at_device=DateTimeOffset.UtcNow.ToString("O")};
-        outbox.Parameters.AddWithValue("$payload",System.Text.Json.JsonSerializer.Serialize(payload));outbox.Parameters.AddWithValue("$created",DateTimeOffset.UtcNow.ToString("O"));await outbox.ExecuteNonQueryAsync(cancellationToken);await tx.CommitAsync(cancellationToken);return session;
+        var updated = await AssignActivityTypeManyAsync([sessionId], activityTypeId, isBillable, cancellationToken);
+        return updated.FirstOrDefault();
+    }
+
+    public async Task<IReadOnlyList<ActivitySession>> AssignActivityTypeManyAsync(IEnumerable<string> sessionIds, string activityTypeId, bool? isBillable, CancellationToken cancellationToken = default)
+    {
+        var ids = sessionIds.Where(x => !string.IsNullOrWhiteSpace(x)).Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        if (ids.Count == 0) return [];
+
+        await using var connection = database.OpenConnection();
+        await using var tx = await connection.BeginTransactionAsync(cancellationToken);
+        var updatedAt = DateTimeOffset.UtcNow.ToString("O");
+        var result = new List<ActivitySession>();
+
+        foreach (var id in ids)
+        {
+            await using var update = connection.CreateCommand();
+            update.Transaction = (SqliteTransaction)tx;
+            update.CommandText = "UPDATE activity_sessions SET activity_type_id=$type,is_billable=$billable,version=version+1,sync_state='pending',updated_at_device=$updated WHERE id=$id";
+            update.Parameters.AddWithValue("$type", activityTypeId);
+            update.Parameters.AddWithValue("$billable", isBillable.HasValue ? (object)(isBillable.Value ? 1 : 0) : DBNull.Value);
+            update.Parameters.AddWithValue("$updated", updatedAt);
+            update.Parameters.AddWithValue("$id", id);
+            if (await update.ExecuteNonQueryAsync(cancellationToken) == 0) continue;
+
+            var session = await ReadByIdAsync(connection, (SqliteTransaction)tx, id, cancellationToken);
+            if (session is null) continue;
+            await QueueSessionOutboxAsync(connection, (SqliteTransaction)tx, session, clearExisting: true, includeCreatedAtDevice: false, ct: cancellationToken);
+            result.Add(session);
+        }
+
+        await tx.CommitAsync(cancellationToken);
+        return result;
     }
 
     public async Task<int> CountPendingSyncAsync(CancellationToken cancellationToken = default)
@@ -127,6 +134,65 @@ public sealed class ActivitySessionRepository(LocalDatabase database)
         await using var cmd = connection.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM sync_outbox";
         return Convert.ToInt32(await cmd.ExecuteScalarAsync(cancellationToken));
+    }
+
+    private static async Task<ActivitySession?> ReadByIdAsync(SqliteConnection connection, SqliteTransaction tx, string id, CancellationToken ct)
+    {
+        await using var select = connection.CreateCommand();
+        select.Transaction = tx;
+        select.CommandText = "SELECT * FROM activity_sessions WHERE id=$id";
+        select.Parameters.AddWithValue("$id", id);
+        await using var reader = await select.ExecuteReaderAsync(ct);
+        return await reader.ReadAsync(ct) ? Read(reader) : null;
+    }
+
+    private static async Task QueueSessionOutboxAsync(SqliteConnection connection, SqliteTransaction tx, ActivitySession session, bool clearExisting, bool includeCreatedAtDevice, CancellationToken ct)
+    {
+        if (clearExisting)
+        {
+            await using var clear = connection.CreateCommand();
+            clear.Transaction = tx;
+            clear.CommandText = "DELETE FROM sync_outbox WHERE entity_type='activity_session' AND entity_id=$entity";
+            clear.Parameters.AddWithValue("$entity", session.Id);
+            await clear.ExecuteNonQueryAsync(ct);
+        }
+
+        await using var outbox = connection.CreateCommand();
+        outbox.Transaction = tx;
+        outbox.CommandText = "INSERT INTO sync_outbox(id,entity_type,entity_id,operation,payload_json,created_at) VALUES($id,'activity_session',$entity_id,'upsert',$payload,$created_at)";
+        outbox.Parameters.AddWithValue("$id", Guid.NewGuid().ToString("N"));
+        outbox.Parameters.AddWithValue("$entity_id", session.Id);
+        outbox.Parameters.AddWithValue("$payload", System.Text.Json.JsonSerializer.Serialize(BuildSyncPayload(session, includeCreatedAtDevice)));
+        outbox.Parameters.AddWithValue("$created_at", DateTimeOffset.UtcNow.ToString("O"));
+        await outbox.ExecuteNonQueryAsync(ct);
+    }
+
+    private static Dictionary<string, object?> BuildSyncPayload(ActivitySession session, bool includeCreatedAtDevice)
+    {
+        var payload = new Dictionary<string, object?>
+        {
+            ["id"] = session.Id,
+            ["device_id"] = session.DeviceId,
+            ["project_id"] = session.ProjectId,
+            ["task_id"] = session.TaskId,
+            ["activity_type_id"] = session.ActivityTypeId,
+            ["is_billable"] = session.IsBillable,
+            ["source"] = session.Source.ToStorageValue(),
+            ["process_name"] = session.ProcessName,
+            ["executable_path"] = session.ExecutablePath,
+            ["window_title"] = session.WindowTitle,
+            ["classification_confidence"] = session.ClassificationConfidence,
+            ["classification_reason"] = session.ClassificationReason,
+            ["started_at"] = session.StartedAt.ToUniversalTime().ToString("O"),
+            ["ended_at"] = session.EndedAt.ToUniversalTime().ToString("O"),
+            ["duration_seconds"] = session.DurationSeconds,
+            ["idle_seconds"] = session.IdleSeconds,
+            ["note"] = session.Note,
+            ["version"] = session.Version,
+            ["updated_at_device"] = DateTimeOffset.UtcNow.ToString("O"),
+        };
+        if (includeCreatedAtDevice) payload["created_at_device"] = DateTimeOffset.UtcNow.ToString("O");
+        return payload;
     }
 
     private static void Bind(SqliteCommand cmd, ActivitySession s)

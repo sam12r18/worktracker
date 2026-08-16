@@ -1,4 +1,4 @@
-# WorkTracker 0.1.0-alpha.7.2 — Complete Package
+# WorkTracker 0.1.0-alpha.7.3 — Complete Package
 
 ## ساختار
 - `apps/api/` — Laravel 12 کامل و مستقل (نه overlay)
