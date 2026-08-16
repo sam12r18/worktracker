@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use App\Models\Device;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class DeviceController extends Controller
 {
@@ -16,6 +18,9 @@ class DeviceController extends Controller
 
     public function store(Request $request): JsonResponse
     {
+        $correlationId = trim((string) $request->header('X-WorkTracker-Correlation-ID', ''));
+        if ($correlationId === '' || !preg_match('/^[A-Za-z0-9._-]{8,64}$/', $correlationId)) $correlationId = (string) Str::uuid();
+
         $data = $request->validate([
             'id' => ['required','uuid'],
             'name' => ['required','string','max:120'],
@@ -38,7 +43,17 @@ class DeviceController extends Controller
         $device->last_seen_at = now();
         $device->save();
 
-        return response()->json($device, $device->wasRecentlyCreated ? 201 : 200);
+        Log::channel('worktracker_sync')->info('device.registered', [
+            'correlation_id' => $correlationId,
+            'user_id' => $request->user()->getKey(),
+            'device_id' => $device->getKey(),
+            'created' => $device->wasRecentlyCreated,
+            'platform' => $device->platform,
+            'app_version' => $device->app_version,
+        ]);
+
+        return response()->json($device, $device->wasRecentlyCreated ? 201 : 200)
+            ->header('X-WorkTracker-Correlation-ID', $correlationId);
     }
 
     public function show(Request $request, Device $device): JsonResponse

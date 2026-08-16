@@ -14,6 +14,8 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\Rule;
@@ -22,7 +24,11 @@ class SyncController extends Controller
 {
     public function __invoke(Request $request, SyncConflictService $conflictService): JsonResponse
     {
-        $data = $request->validate([
+        $correlationId = $this->correlationId($request);
+        $startedAt = microtime(true);
+
+        try {
+            $data = $request->validate([
             'device_id' => ['required','uuid'],
             'cursor' => ['nullable','string','max:512'],
             'pull_limit' => ['nullable','integer','min:1','max:1000'],
@@ -34,7 +40,18 @@ class SyncController extends Controller
             'changes.*.operation' => ['required','in:upsert'],
             'changes.*.version' => ['required','integer','min:1'],
             'changes.*.payload' => ['required','array'],
-        ]);
+            ]);
+        } catch (ValidationException $e) {
+            Log::channel('worktracker_sync')->warning('sync.validation_failed', [
+                'correlation_id' => $correlationId,
+                'device_id' => $request->input('device_id'),
+                'user_id' => $request->user()?->getKey(),
+                'errors' => $e->errors(),
+                'changes_count' => is_array($request->input('changes')) ? count($request->input('changes')) : null,
+                'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+            ]);
+            throw $e;
+        }
 
         $user = $request->user();
         $token = $user->currentAccessToken();
@@ -42,6 +59,18 @@ class SyncController extends Controller
         $device = Device::query()->whereKey($data['device_id'])->whereBelongsTo($user)->firstOrFail();
         abort_if($device->revoked_at, 403, 'Device is revoked.');
         $device->forceFill(['last_seen_at'=>now(),'last_sync_started_at'=>now(),'last_sync_error'=>null])->save();
+
+        Log::channel('worktracker_sync')->info('sync.started', [
+            'correlation_id' => $correlationId,
+            'user_id' => $user->getKey(),
+            'device_id' => $device->getKey(),
+            'changes_count' => count($data['changes']),
+            'changes_by_entity' => collect($data['changes'])->countBy('entity')->all(),
+            'has_cursor' => !empty($data['cursor']),
+            'cursor_hash' => empty($data['cursor']) ? null : substr(hash('sha256', (string) $data['cursor']), 0, 12),
+            'pull_limit' => (int) ($data['pull_limit'] ?? 500),
+            'acknowledged_conflicts' => count($data['acknowledged_conflict_ids'] ?? []),
+        ]);
 
         if (!empty($data['acknowledged_conflict_ids'])) {
             SyncConflict::query()
@@ -156,12 +185,33 @@ class SyncController extends Controller
                 'last_seen_at'=>now(),
             ])->save();
 
+            Log::channel('worktracker_sync')->info('sync.completed', [
+                'correlation_id' => $correlationId,
+                'user_id' => $user->getKey(),
+                'device_id' => $device->getKey(),
+                'accepted' => count($accepted),
+                'conflicts' => count($conflicts),
+                'resolutions' => count($resolutions),
+                'remote_changes' => count($remoteChanges),
+                'remote_by_entity' => collect($remoteChanges)->countBy('entity')->all(),
+                'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+            ]);
+
             return response()->json([
                 'accepted'=>$accepted,'conflicts'=>$conflicts,'resolutions'=>$resolutions,
                 'remote_changes'=>$remoteChanges,'server_cursor'=>$nextCursor,
-            ]);
+            ])->header('X-WorkTracker-Correlation-ID', $correlationId);
         } catch (\Throwable $e) {
             $device->forceFill(['last_sync_error'=>mb_substr($e->getMessage(),0,4000),'last_seen_at'=>now()])->save();
+            Log::channel('worktracker_sync')->error('sync.failed', [
+                'correlation_id' => $correlationId,
+                'user_id' => $user->getKey(),
+                'device_id' => $device->getKey(),
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+                'validation_errors' => $e instanceof ValidationException ? $e->errors() : null,
+                'duration_ms' => (int) round((microtime(true) - $startedAt) * 1000),
+            ]);
             throw $e;
         }
     }
@@ -297,6 +347,13 @@ class SyncController extends Controller
                 $same->where('updated_at', '=', $from)->where('id', '>', $cursorId);
             });
         });
+    }
+
+    private function correlationId(Request $request): string
+    {
+        $incoming = trim((string) $request->header('X-WorkTracker-Correlation-ID', ''));
+        if ($incoming !== '' && preg_match('/^[A-Za-z0-9._-]{8,64}$/', $incoming)) return $incoming;
+        return (string) Str::uuid();
     }
 
     private function decodeCursor(?string $cursor): ?array

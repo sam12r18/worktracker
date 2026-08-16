@@ -1,35 +1,57 @@
 using System.Text.Json;
 using Microsoft.Data.Sqlite;
+using WorkTracker.Agent.Diagnostics;
 using WorkTracker.Agent.Storage;
 
 namespace WorkTracker.Agent.Sync;
 
 public sealed class RemoteChangeApplier(LocalDatabase database)
 {
-    public async Task ApplyAsync(IEnumerable<RemoteChange> changes, CancellationToken ct=default)
+    public async Task ApplyAsync(IEnumerable<RemoteChange> changes, string? correlationId = null, CancellationToken ct=default)
     {
         await using var connection=database.OpenConnection(); await using var tx=await connection.BeginTransactionAsync(ct);
         foreach(var change in changes)
         {
             if(change.Entity is not ("project" or "project_rule" or "activity_type")) continue;
-            if(change.Entity != "activity_type" && await HasPendingLocalChangeAsync(connection,(SqliteTransaction)tx,change.Entity,change.Id,ct)) continue;
-            if(change.Entity=="project") await ApplyProjectAsync(connection,(SqliteTransaction)tx,change,ct);
-            else if(change.Entity=="project_rule") await ApplyRuleAsync(connection,(SqliteTransaction)tx,change,ct);
-            else await ApplyActivityTypeAsync(connection,(SqliteTransaction)tx,change,ct);
+            if(change.Entity != "activity_type" && await HasPendingLocalChangeAsync(connection,(SqliteTransaction)tx,change.Entity,change.Id,ct))
+            {
+                await AgentLog.WarnAsync("sync.apply", "remote change skipped because a local pending change exists", new { entity = change.Entity, id = change.Id, version = change.Version }, correlationId);
+                continue;
+            }
+
+            try
+            {
+                if(change.Entity=="project") await ApplyProjectAsync(connection,(SqliteTransaction)tx,change,ct);
+                else if(change.Entity=="project_rule") await ApplyRuleAsync(connection,(SqliteTransaction)tx,change,ct);
+                else await ApplyActivityTypeAsync(connection,(SqliteTransaction)tx,change,ct);
+            }
+            catch (Exception ex)
+            {
+                await AgentLog.ErrorAsync("sync.apply", "failed to apply remote change to SQLite", ex, new { entity = change.Entity, id = change.Id, version = change.Version }, correlationId);
+                throw;
+            }
         }
         await tx.CommitAsync(ct);
     }
 
-    public async Task ApplyConflictResolutionsAsync(IEnumerable<ConflictResolution> resolutions,CancellationToken ct=default)
+    public async Task ApplyConflictResolutionsAsync(IEnumerable<ConflictResolution> resolutions, string? correlationId = null, CancellationToken ct=default)
     {
         await using var connection=database.OpenConnection(); await using var tx=await connection.BeginTransactionAsync(ct);
         foreach(var r in resolutions)
         {
             if(r.Resolution!="keep_server" || r.ServerPayload is null) continue;
             var payload=r.ServerPayload.Value; var updated=DateTimeOffset.UtcNow.ToString("O");
-            if(r.Entity=="project") await ApplyProjectAsync(connection,(SqliteTransaction)tx,new RemoteChange("project",r.Id,r.ServerVersion,payload,updated),ct);
-            else if(r.Entity=="project_rule") await ApplyRuleAsync(connection,(SqliteTransaction)tx,new RemoteChange("project_rule",r.Id,r.ServerVersion,payload,updated),ct);
-            else if(r.Entity=="activity_session") await ApplyActivityAsync(connection,(SqliteTransaction)tx,r.Id,r.ServerVersion,payload,ct);
+            try
+            {
+                if(r.Entity=="project") await ApplyProjectAsync(connection,(SqliteTransaction)tx,new RemoteChange("project",r.Id,r.ServerVersion,payload,updated),ct);
+                else if(r.Entity=="project_rule") await ApplyRuleAsync(connection,(SqliteTransaction)tx,new RemoteChange("project_rule",r.Id,r.ServerVersion,payload,updated),ct);
+                else if(r.Entity=="activity_session") await ApplyActivityAsync(connection,(SqliteTransaction)tx,r.Id,r.ServerVersion,payload,ct);
+            }
+            catch (Exception ex)
+            {
+                await AgentLog.ErrorAsync("sync.resolution", "failed to apply conflict resolution", ex, new { entity = r.Entity, id = r.Id, resolution = r.Resolution, server_version = r.ServerVersion }, correlationId);
+                throw;
+            }
         }
         await tx.CommitAsync(ct);
     }

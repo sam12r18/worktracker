@@ -65,6 +65,66 @@ public sealed class SyncOutboxRepository(LocalDatabase database)
         }
     }
 
+    public async Task<int> RetryDelayedNowAsync(CancellationToken ct = default)
+    {
+        await using var connection = database.OpenConnection();
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = "UPDATE sync_outbox SET next_attempt_at = NULL WHERE next_attempt_at IS NOT NULL";
+        return await cmd.ExecuteNonQueryAsync(ct);
+    }
+
+    public async Task<SyncQueueDiagnostics> GetQueueDiagnosticsAsync(CancellationToken ct = default)
+    {
+        await using var connection = database.OpenConnection();
+        var now = DateTimeOffset.UtcNow.ToString("O");
+        await using var cmd = connection.CreateCommand();
+        cmd.CommandText = """
+            SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN next_attempt_at IS NULL OR next_attempt_at <= $now THEN 1 ELSE 0 END) AS due,
+                SUM(CASE WHEN next_attempt_at IS NOT NULL AND next_attempt_at > $now THEN 1 ELSE 0 END) AS delayed,
+                SUM(CASE WHEN last_error IS NOT NULL AND last_error <> '' THEN 1 ELSE 0 END) AS failed,
+                COALESCE(MAX(attempt_count), 0) AS max_attempts,
+                MIN(CASE WHEN next_attempt_at IS NOT NULL AND next_attempt_at > $now THEN next_attempt_at END) AS next_retry
+            FROM sync_outbox;
+            """;
+        cmd.Parameters.AddWithValue("$now", now);
+
+        int total, due, delayed, failed, maxAttempts;
+        DateTimeOffset? nextRetry = null;
+        await using (var reader = await cmd.ExecuteReaderAsync(ct))
+        {
+            await reader.ReadAsync(ct);
+            total = reader.IsDBNull(0) ? 0 : Convert.ToInt32(reader.GetInt64(0));
+            due = reader.IsDBNull(1) ? 0 : Convert.ToInt32(reader.GetInt64(1));
+            delayed = reader.IsDBNull(2) ? 0 : Convert.ToInt32(reader.GetInt64(2));
+            failed = reader.IsDBNull(3) ? 0 : Convert.ToInt32(reader.GetInt64(3));
+            maxAttempts = reader.IsDBNull(4) ? 0 : Convert.ToInt32(reader.GetInt64(4));
+            if (!reader.IsDBNull(5) && DateTimeOffset.TryParse(reader.GetString(5), out var parsed)) nextRetry = parsed;
+        }
+
+        await using var last = connection.CreateCommand();
+        last.CommandText = """
+            SELECT entity_type,entity_id,last_error
+            FROM sync_outbox
+            WHERE last_error IS NOT NULL AND last_error <> ''
+            ORDER BY attempt_count DESC, COALESCE(next_attempt_at, created_at) DESC
+            LIMIT 1;
+            """;
+        string? entity = null, entityId = null, error = null;
+        await using (var reader = await last.ExecuteReaderAsync(ct))
+        {
+            if (await reader.ReadAsync(ct))
+            {
+                entity = reader.IsDBNull(0) ? null : reader.GetString(0);
+                entityId = reader.IsDBNull(1) ? null : reader.GetString(1);
+                error = reader.IsDBNull(2) ? null : reader.GetString(2);
+            }
+        }
+
+        return new SyncQueueDiagnostics(total, due, delayed, failed, maxAttempts, nextRetry, error, entity, entityId);
+    }
+
     public async Task<int> CountConflictsAsync(CancellationToken ct=default)
     {
         await using var connection=database.OpenConnection();await using var cmd=connection.CreateCommand();cmd.CommandText="SELECT COUNT(*) FROM sync_conflicts WHERE resolved_at IS NULL";return Convert.ToInt32(await cmd.ExecuteScalarAsync(ct));

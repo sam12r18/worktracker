@@ -1,2 +1,25 @@
-apps/windows-agent/WorkTracker.Agent/Storage/ProjectRepository.cs
-HOTFIX-alpha.7.2-wpf-operator-keyword.md
+WorkTracker alpha.7.2 Sync Diagnostics Patch
+
+Files:
+- HOTFIX-alpha.7.2-sync-diagnostics.md
+- apps/api/.env.example
+- apps/api/.env.worktracker.example
+- apps/api/app/Http/Controllers/Api/V1/DeviceController.php
+- apps/api/app/Http/Controllers/Api/V1/SyncController.php
+- apps/api/app/Http/Controllers/WorkTracker/DiagnosticsController.php
+- apps/api/config/logging.php
+- apps/api/config/worktracker-help.php
+- apps/api/resources/views/components/worktracker/nav.blade.php
+- apps/api/resources/views/worktracker/diagnostics/index.blade.php
+- apps/api/routes/worktracker.php
+- apps/windows-agent/WorkTracker.Agent/App.xaml.cs
+- apps/windows-agent/WorkTracker.Agent/Diagnostics/AgentLog.cs
+- apps/windows-agent/WorkTracker.Agent/MainWindow.xaml
+- apps/windows-agent/WorkTracker.Agent/MainWindow.xaml.cs
+- apps/windows-agent/WorkTracker.Agent/Sync/ApiSyncClient.cs
+- apps/windows-agent/WorkTracker.Agent/Sync/RemoteChangeApplier.cs
+- apps/windows-agent/WorkTracker.Agent/Sync/SyncEngine.cs
+- apps/windows-agent/WorkTracker.Agent/Sync/SyncModels.cs
+- apps/windows-agent/WorkTracker.Agent/Sync/SyncOutboxRepository.cs
+- docs/api/sync-contract.md
+- docs/status.md

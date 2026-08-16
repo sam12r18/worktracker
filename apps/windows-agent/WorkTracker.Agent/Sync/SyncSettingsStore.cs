@@ -11,10 +11,22 @@ public sealed class SyncSettingsStore(LocalDatabase database)
     private const string TokenKey = "sync_access_token_dpapi";
     private const string CursorKey = "sync_cursor";
     private const string LastSuccessKey = "sync_last_success";
+    private const string ProtocolVersionKey = "sync_protocol_version";
+    private const string CurrentProtocolVersion = "2";
 
     public async Task<SyncSettings> LoadAsync(CancellationToken ct = default)
     {
-        var values = await ReadManyAsync([ApiUrlKey, TokenKey, CursorKey, LastSuccessKey], ct);
+        var values = await ReadManyAsync([ApiUrlKey, TokenKey, CursorKey, LastSuccessKey, ProtocolVersionKey], ct);
+
+        // Sync protocol v2 explicitly maps snake_case API response fields. Reset the old
+        // checkpoint once so projects/rules missed by older agents are pulled again.
+        if (!string.Equals(values.GetValueOrDefault(ProtocolVersionKey), CurrentProtocolVersion, StringComparison.Ordinal))
+        {
+            await SetAsync(CursorKey, null, ct);
+            await SetAsync(ProtocolVersionKey, CurrentProtocolVersion, ct);
+            values[CursorKey] = null;
+        }
+
         var url = values.GetValueOrDefault(ApiUrlKey) ?? "";
         var token = Unprotect(values.GetValueOrDefault(TokenKey));
         DateTimeOffset? last = DateTimeOffset.TryParse(values.GetValueOrDefault(LastSuccessKey), out var parsed) ? parsed : null;
@@ -39,6 +51,8 @@ public sealed class SyncSettingsStore(LocalDatabase database)
     }
 
     public Task ClearTokenAsync(CancellationToken ct = default) => SetAsync(TokenKey, null, ct);
+
+    public Task ResetCursorAsync(CancellationToken ct = default) => SetAsync(CursorKey, null, ct);
 
     private async Task<Dictionary<string,string?>> ReadManyAsync(string[] keys, CancellationToken ct)
     {

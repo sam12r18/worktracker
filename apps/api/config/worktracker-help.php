@@ -82,5 +82,13 @@ return [
             'title' => 'راهنمای Audit',
             'body' => ['Audit برای ردیابی تغییرات مدیریتی و اصلاحات تاریخی است و باید به‌عنوان سابقه بررسی شود، نه ابزار ویرایش.'],
         ],
+        'worktracker.diagnostics.index' => [
+            'title' => 'راهنمای لاگ و عیب‌یابی',
+            'body' => [
+                'Correlation ID یک درخواست Sync را بین Windows Agent و Laravel به هم متصل می‌کند.',
+                'Pending کل صف محلی است؛ Due آماده ارسال و Delayed در انتظار Retry بعد از خطاست.',
+                'Token و Authorization در لاگ اختصاصی Sync ثبت نمی‌شوند. برای خطاهای Sync ابتدا این صفحه و تب «لاگ‌ها» در Agent را بررسی کنید.',
+            ],
+        ],
     ],
 ];

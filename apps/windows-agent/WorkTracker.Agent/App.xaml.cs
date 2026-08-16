@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Threading;
 using System.Windows;
 using WorkTracker.Agent.Classification;
+using WorkTracker.Agent.Diagnostics;
 using WorkTracker.Agent.Services;
 using WorkTracker.Agent.Storage;
 using WorkTracker.Agent.Sync;
@@ -42,6 +43,7 @@ public partial class App : System.Windows.Application
 
         try
         {
+            await AgentLog.InfoAsync("app", "WorkTracker Agent starting", new { machine = Environment.MachineName, version = Infrastructure.BuildInfo.Version });
             var database = new LocalDatabase();
             await database.InitializeAsync();
 
@@ -55,6 +57,9 @@ public partial class App : System.Windows.Application
             var classifier = new ProjectClassificationService(projects);
             var corrections = new ActivityCorrectionService(repository, classifier);
             var syncSettings = new SyncSettingsStore(database);
+            // Apply one-time sync protocol migrations (including checkpoint reset) before
+            // the background loop can issue its first request.
+            _ = await syncSettings.LoadAsync();
             var outbox = new SyncOutboxRepository(database);
             var applier = new RemoteChangeApplier(database);
 
@@ -101,11 +106,13 @@ public partial class App : System.Windows.Application
 
             _tracking.Start();
             _sync.Start();
+            await AgentLog.InfoAsync("app", "WorkTracker Agent started", new { device_id = deviceId, database = database.DatabasePath });
             _tray.SetState(_tracking.State, await repository.CountPendingSyncAsync());
             ShowWindow();
         }
         catch (Exception ex)
         {
+            await AgentLog.ErrorAsync("app", "WorkTracker Agent startup failed", ex);
             MessageBox.Show(
                 $"راه‌اندازی WorkTracker ناموفق بود.\n\n{ex.Message}",
                 "WorkTracker",
@@ -133,6 +140,7 @@ public partial class App : System.Windows.Application
 
     private async Task ExitAsync()
     {
+        await AgentLog.InfoAsync("app", "WorkTracker Agent exit requested");
         if (_window is not null)
         {
             await _window.PrepareForExitAsync();

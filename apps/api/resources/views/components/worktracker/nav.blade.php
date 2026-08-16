@@ -19,6 +19,7 @@
             ['worktracker.tokens.*', 'worktracker.tokens.index', 'API و Token'],
             ['worktracker.conflicts*', 'worktracker.conflicts', 'تعارض‌ها'],
             ['worktracker.audit.*', 'worktracker.audit.index', 'Audit'],
+            ['worktracker.diagnostics.*', 'worktracker.diagnostics.index', 'لاگ سیستم'],
         ];
     @endphp
 

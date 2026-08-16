@@ -126,3 +126,20 @@ Activity Types are not pushed by Device Tokens. They are managed on the authenti
 
 ### Billing authority boundary
 `activity_type` is Pull-only configuration. Project Pull includes `customer_id`, `rate_multiplier`, and `is_billable_default` for local context. Device project Push must not mutate these commercial fields on Laravel; only authenticated server-side Billing administration changes them.
+
+## Agent response mapping and full-pull recovery (alpha.7.2 hotfix)
+Laravel response field names are authoritative snake_case (`remote_changes`, `server_cursor`, `updated_at`, `server_version`, `conflict_id`, `server_payload`). The Windows Agent DTO layer must map these names explicitly; case-insensitive mapping alone is insufficient because underscores are semantically significant for `System.Text.Json` property matching.
+
+Sync protocol version `2` resets the locally persisted cursor once on upgrade so configuration missed by older clients is pulled again. The Sync tab also exposes **بازخوانی کامل از سرور**, which clears only the local cursor and re-pulls Project, Project Rule, and Activity Type configuration without deleting the local activity timeline or token.
+
+## Sync diagnostics and correlation (alpha.7.2 hotfix)
+Windows Agent sends `X-WorkTracker-Correlation-ID` on both device registration and sync requests. Laravel returns the same identifier on successful responses and writes it to the dedicated `worktracker_sync` log channel. The Agent writes the same identifier to `%LOCALAPPDATA%\\WorkTracker\\logs\\agent-YYYY-MM-DD.log`, allowing one sync cycle to be traced across both sides without logging the Sanctum token.
+
+Agent queue diagnostics distinguish:
+- `Total`: all outbox rows.
+- `Due`: immediately eligible for the next request.
+- `Delayed`: temporarily held by exponential backoff.
+- `Failed`: rows carrying a previous `last_error`.
+- `NextRetryAt`: earliest scheduled retry.
+
+The UI action **تلاش مجدد صف** clears only `next_attempt_at`; it does not delete the outbox row, reset captured activity, or remove the last error/attempt history.

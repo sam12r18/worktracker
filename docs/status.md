@@ -30,3 +30,11 @@ Current release: **0.1.0-alpha.7.2 — Admin Master Data, Context Help & Agent R
 - Browser/IDE enrichment after Project Rule behavior is validated against real foreground windows.
 - Work-report export/presets and richer Task workflows.
 - Team/organization/RBAC management remains intentionally deferred until its ownership model is specified.
+
+## alpha.7.2 sync diagnostics hotfix
+- Added structured daily Agent logs with 14-day retention and a dedicated WPF log viewer.
+- Added dedicated Laravel `worktracker_sync` daily logs and an authenticated `/worktracker/diagnostics` page.
+- Added end-to-end correlation IDs for device registration and sync.
+- Added Outbox diagnostics for total/due/delayed/failed rows plus last error and next retry time.
+- Added a safe retry action that removes only backoff delay and immediately retries queued rows.
+- Sanctum tokens and Authorization headers are intentionally excluded from diagnostic logs.
