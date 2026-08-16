@@ -9,12 +9,14 @@ public sealed class TrayIconService : IDisposable
     private readonly NotifyIcon _icon;
     public event EventHandler? ShowRequested;
     public event EventHandler? PauseResumeRequested;
+    public event EventHandler? WidgetRequested;
     public event EventHandler? ExitRequested;
 
     public TrayIconService()
     {
         var menu = new ContextMenuStrip();
         menu.Items.Add("نمایش WorkTracker", null, (_,_) => ShowRequested?.Invoke(this,EventArgs.Empty));
+        menu.Items.Add("نمایش ویجت فعالیت", null, (_,_) => WidgetRequested?.Invoke(this,EventArgs.Empty));
         menu.Items.Add("توقف / ادامه ردیابی", null, (_,_) => PauseResumeRequested?.Invoke(this,EventArgs.Empty));
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add("خروج", null, (_,_) => ExitRequested?.Invoke(this,EventArgs.Empty));

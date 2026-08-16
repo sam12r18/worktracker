@@ -18,7 +18,8 @@ Verified map: `docs/handoff/current-project-map.md`.
 ## Current capabilities
 - Foreground + idle capture, multiple simultaneous manual timers and System Tray.
 - Local projects, deterministic project rules, Unknown Inbox and explicit learning.
-- Derived Work Events aggregate noisy foreground segments; stable IDE Context patterns and bounded short continuity bridges reduce title/tab noise without deleting raw data.
+- Derived Work Events aggregate noisy foreground segments; stable IDE Context patterns and independent per-Project Continuity Bridges support mutual/multi-project additive continuity without deleting raw data.
+- Project Pulse side widget shows the three most recent Projects with live credited/direct/bridge time plus Effort/Coverage/Concurrent totals.
 - Offline-first transactional outbox and device-bound Sanctum Sync.
 - Central Effort/Coverage reporting, device health and durable conflict resolution.
 - Public-host security with Session-authenticated dashboard and scoped token-only API.

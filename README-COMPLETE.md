@@ -2,7 +2,7 @@
 
 ## ساختار
 - `apps/api/` — Laravel 12 کامل و مستقل (نه overlay)
-- `apps/windows-agent/WorkTracker.Agent/` — برنامه WPF ویندوز
+- `apps/windows-agent/WorkTracker.Agent/` — برنامه WPF ویندوز با Work Event Aggregation و ویجت Project Pulse
 - `tools/build-windows-agent.ps1` — Build ویندوز
 - `docs/` — مستندات پروژه
 

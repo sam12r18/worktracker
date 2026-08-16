@@ -16,7 +16,7 @@ Important areas:
 - `Tracking/` — foreground + idle capture plus application Context normalization.
 - `Classification/ProjectResolver.cs` — deterministic Rule matching including contains/equals/starts_with/ends_with/regex.
 - `Classification/ActivityTypeInferenceService.cs` — conservative explicit Debug/Test inference only.
-- `Services/WorkEventAggregationService.cs` — derived Work Events, same-Project aggregation and bounded continuity bridge projection.
+- `Services/WorkEventAggregationService.cs` — derived Work Events, same-Project aggregation, per-project continuity state decisions and mutual/multi-project bridge projection.
 - `Storage/` — SQLite schema/repositories and additive upgrade columns; `project_rules.operator` is auto-added to existing local DBs.
 - `Sync/` — outbox, Sanctum API client, Project/Rule/Billing Pull and conflict handling.
 - `MainWindow.xaml(.cs)` — Work Event timeline/correction, Sync diagnostics/settings and Device UUID copy action.
@@ -70,3 +70,5 @@ Admin API additionally exposes Projects, Customers, project Tasks, Devices, Acti
 
 ## Scope boundary
 Team/organization/RBAC administration is not part of alpha.7.3. Do not bolt it onto Customer/Project ownership without a dedicated ownership/security design.
+
+- `ProjectPulseWidget.xaml(.cs)` — compact always-on-top view of the three latest Projects with live credited/direct/bridge and global Effort/Coverage/Concurrent counters.

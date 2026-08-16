@@ -21,8 +21,8 @@ namespace WorkTracker.Agent;
 
 public partial class MainWindow : Window
 {
-    private readonly string _deviceId; private readonly TrackingEngine _tracking; private readonly ManualTimerService _manualTimer; private readonly ActivitySessionRepository _repository; private readonly ProjectRepository _projects; private readonly ActivityTypeRepository _activityTypes; private readonly ActivityCorrectionService _corrections; private readonly SyncEngine _sync; private readonly SyncSettingsStore _syncSettings; private readonly SyncOutboxRepository _syncOutbox; private readonly DispatcherTimer _uiTimer; private bool _allowClose; private string? _lastBridgeSignature;
-    public event EventHandler? HideRequested; public event EventHandler? ExitRequested;
+    private readonly string _deviceId; private readonly TrackingEngine _tracking; private readonly ManualTimerService _manualTimer; private readonly ActivitySessionRepository _repository; private readonly ProjectRepository _projects; private readonly ActivityTypeRepository _activityTypes; private readonly ActivityCorrectionService _corrections; private readonly SyncEngine _sync; private readonly SyncSettingsStore _syncSettings; private readonly SyncOutboxRepository _syncOutbox; private readonly DispatcherTimer _uiTimer; private bool _allowClose; private string? _lastBridgeSignature; private string? _lastAggregationDecisionSignature;
+    public event EventHandler? HideRequested; public event EventHandler? ExitRequested; public event EventHandler? WidgetRequested;
 
     public MainWindow(TrackingEngine tracking, ManualTimerService manualTimer, ActivitySessionRepository repository, ProjectRepository projects, ActivityTypeRepository activityTypes, ActivityCorrectionService corrections, SyncEngine sync, SyncSettingsStore syncSettings, SyncOutboxRepository syncOutbox, string deviceId)
     {
@@ -32,6 +32,8 @@ public partial class MainWindow : Window
         _sync.StatusChanged+=(_,status)=>Dispatcher.Invoke(()=>UpdateSyncStatus(status)); _tracking.StateChanged+=(_,_)=>Dispatcher.Invoke(UpdateTrackingState); _tracking.ForegroundChanged+=(_,snapshot)=>Dispatcher.Invoke(()=>{TodaySummary.CurrentActivity=snapshot?.WindowTitle??"بدون فعالیت فعال";TodaySummary.CurrentProcess=snapshot?.ProcessName??"-";}); _tracking.SessionSaved+=async(_,_)=>await Dispatcher.InvokeAsync(RefreshAsync);
         _uiTimer=new DispatcherTimer{Interval=TimeSpan.FromSeconds(5)};_uiTimer.Tick+=async(_,_)=>await RefreshAsync();_uiTimer.Start();Loaded+=async(_,_)=>{UpdateTrackingState();await LoadSyncSettingsAsync();UpdateSyncStatus(_sync.Status);await RefreshAsync();await RefreshLogsAsync();};
     }
+
+    private void ShowWidgetButton_Click(object sender, RoutedEventArgs e) => WidgetRequested?.Invoke(this, EventArgs.Empty);
 
     public async Task ToggleTrackingAsync(){if(_tracking.State==TrackingState.Paused)_tracking.Resume();else await _tracking.PauseAsync();UpdateTrackingState();}
     private async void TrackingButton_Click(object sender,RoutedEventArgs e)=>await ToggleTrackingAsync();
@@ -69,7 +71,8 @@ public partial class MainWindow : Window
             if (assignedSelected is not null) AssignedProjectCombo.SelectedValue = assignedSelected;
 
             var sessions = await _repository.GetForLocalDayAsync(DateTime.Now.Date);
-            var events = WorkEventAggregationService.Aggregate(sessions);
+            var aggregation = WorkEventAggregationService.AggregateWithDiagnostics(sessions);
+            var events = aggregation.Events;
             var eventRows = events.Select(e => new WorkEventRow(
                 e,
                 e.ProjectId is not null && map.TryGetValue(e.ProjectId, out var projectName) ? projectName : null,
@@ -104,7 +107,7 @@ public partial class MainWindow : Window
             var dayStart = new DateTimeOffset(DateTime.Now.Date, TimeZoneInfo.Local.GetUtcOffset(DateTime.Now.Date));
             var bridgeSeconds = WorkEventAggregationService.TotalBridgeSeconds(events);
             var bridgeRows = events.Where(x => x.BridgeSeconds > 0).ToList();
-            var bridgeSignature = string.Join("|", bridgeRows.Select(x => $"{x.Id}:{x.BridgeSeconds}:{x.EndedAt:O}"));
+            var bridgeSignature = string.Join("|", bridgeRows.Select(x => $"{x.Id}:{x.ProjectId}:{x.BridgeSeconds}:{x.EndedAt:O}"));
             if (!string.Equals(_lastBridgeSignature, bridgeSignature, StringComparison.Ordinal))
             {
                 _lastBridgeSignature = bridgeSignature;
@@ -113,7 +116,36 @@ public partial class MainWindow : Window
                     {
                         events = bridgeRows.Count,
                         bridge_seconds = bridgeSeconds,
+                        concurrent_bridge_projects = bridgeRows.Select(x => x.ProjectId).Where(x => x is not null).Distinct().Count(),
                         rows = bridgeRows.Take(12).Select(x => new { x.ProjectId, x.StartedAt, x.EndedAt, x.DirectSeconds, x.BridgeSeconds }),
+                    });
+            }
+
+            var decisionSignature = string.Join("|", aggregation.Decisions.TakeLast(32).Select(x => $"{x.ProjectId}:{x.State}:{x.At:O}:{x.Reason}:{x.GapSeconds}:{x.DirectSinceLastBridgeSeconds}"));
+            if (!string.Equals(_lastAggregationDecisionSignature, decisionSignature, StringComparison.Ordinal))
+            {
+                _lastAggregationDecisionSignature = decisionSignature;
+                var interesting = aggregation.Decisions
+                    .Where(x => x.State is WorkEventAggregationState.Bridged or WorkEventAggregationState.Closed)
+                    .TakeLast(24)
+                    .Select(x => new
+                    {
+                        x.ProjectId,
+                        state = x.State.ToString(),
+                        x.Reason,
+                        x.DirectSinceLastBridgeSeconds,
+                        x.GapSeconds,
+                        x.InterruptedProjectIds,
+                        x.At,
+                    })
+                    .ToList();
+                if (interesting.Count > 0)
+                    await AgentLog.InfoAsync("activity.aggregate.decision", "work event continuity decisions changed", new
+                    {
+                        initial_anchor_seconds = WorkEventAggregationService.ContinuityInitialAnchorMinimumSeconds,
+                        bridge_max_seconds = WorkEventAggregationService.ContinuityBridgeMaxSeconds,
+                        bridge_rearm_seconds = WorkEventAggregationService.ContinuityBridgeRearmSeconds,
+                        decisions = interesting,
                     });
             }
             var summary = TimeAccountingService.Summarize(sessions, dayStart.ToUniversalTime(), dayStart.AddDays(1).ToUniversalTime(), bridgeSeconds);

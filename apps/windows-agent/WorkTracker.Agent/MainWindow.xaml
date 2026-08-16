@@ -26,13 +26,15 @@
                 <TextBlock Text="WorkTracker" FontSize="25" FontWeight="SemiBold"/>
                 <TextBlock x:Name="DeviceText" Margin="0,4,0,0" FontSize="11" Opacity="0.55"/>
             </StackPanel>
-            <Border x:Name="TrackingBadge"
-                    Style="{StaticResource WtStatusBadge}"
-                    Padding="10,5"
-                    CornerRadius="10"
-                    DockPanel.Dock="Left">
-                <TextBlock x:Name="TrackingStateText" Text="در حال راه‌اندازی..." Foreground="#B7CEFF"/>
-            </Border>
+            <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" FlowDirection="LeftToRight">
+                <Button Content="ویجت فعالیت" Click="ShowWidgetButton_Click" MinHeight="30" Padding="9,3" Margin="0,0,8,0"/>
+                <Border x:Name="TrackingBadge"
+                        Style="{StaticResource WtStatusBadge}"
+                        Padding="10,5"
+                        CornerRadius="10">
+                    <TextBlock x:Name="TrackingStateText" Text="در حال راه‌اندازی..." Foreground="#B7CEFF"/>
+                </Border>
+            </StackPanel>
         </DockPanel>
 
         <controls:TodaySummaryControl x:Name="TodaySummary" Grid.Row="1" Margin="0,14,0,12"/>

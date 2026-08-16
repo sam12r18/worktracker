@@ -1,6 +1,7 @@
 using MessageBox = System.Windows.MessageBox;
 using System.Net.Http;
 using System.Threading;
+using System.IO;
 using System.Windows;
 using WorkTracker.Agent.Classification;
 using WorkTracker.Agent.Diagnostics;
@@ -20,12 +21,26 @@ public partial class App : System.Windows.Application
     private TrackingEngine? _tracking;
     private TrayIconService? _tray;
     private MainWindow? _window;
+    private ProjectPulseWidget? _widget;
     private SyncEngine? _sync;
     private HttpClient? _http;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+
+        if (e.Args.Any(x => string.Equals(x, "--self-test-activity-intelligence", StringComparison.OrdinalIgnoreCase)))
+        {
+            var failures = ActivityIntelligenceSelfTest.Run();
+            var output = Path.Combine(Path.GetTempPath(), "worktracker-activity-intelligence-self-test.txt");
+            IEnumerable<string> lines = failures.Count == 0
+                ? new[] { "PASS: Activity Intelligence deterministic scenarios" }
+                : failures.Select(x => $"FAIL: {x}");
+            File.WriteAllLines(output, lines);
+            Environment.ExitCode = failures.Count == 0 ? 0 : 2;
+            Shutdown(Environment.ExitCode);
+            return;
+        }
 
         _singleInstanceMutex = new Mutex(initiallyOwned: true, SingleInstanceMutexName, out var isFirstInstance);
         if (!isFirstInstance)
@@ -95,11 +110,14 @@ public partial class App : System.Windows.Application
                 syncSettings,
                 outbox,
                 deviceId);
+            _widget = new ProjectPulseWidget(repository, projects, _tracking);
 
             _tray.ShowRequested += (_, _) => ShowWindow();
+            _tray.WidgetRequested += (_, _) => ShowWidget();
             _tray.PauseResumeRequested += async (_, _) => await _window.ToggleTrackingAsync();
             _tray.ExitRequested += async (_, _) => await ExitAsync();
             _window.HideRequested += (_, _) => _window.Hide();
+            _window.WidgetRequested += (_, _) => ShowWidget();
             _window.ExitRequested += async (_, _) => await ExitAsync();
             _tracking.StateChanged += async (_, _) =>
                 _tray.SetState(_tracking.State, await repository.CountPendingSyncAsync());
@@ -111,6 +129,7 @@ public partial class App : System.Windows.Application
             await AgentLog.InfoAsync("app", "WorkTracker Agent started", new { device_id = deviceId, database = database.DatabasePath });
             _tray.SetState(_tracking.State, await repository.CountPendingSyncAsync());
             ShowWindow();
+            ShowWidget();
         }
         catch (Exception ex)
         {
@@ -140,6 +159,11 @@ public partial class App : System.Windows.Application
         _window.Activate();
     }
 
+    private void ShowWidget()
+    {
+        _widget?.ShowAndActivate();
+    }
+
     private async Task ExitAsync()
     {
         await AgentLog.InfoAsync("app", "WorkTracker Agent exit requested");
@@ -147,6 +171,8 @@ public partial class App : System.Windows.Application
         {
             await _window.PrepareForExitAsync();
         }
+
+        _widget?.CloseForExit();
 
         if (_tracking is not null)
         {

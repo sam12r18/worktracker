@@ -7,6 +7,28 @@ public sealed record ContinuityBridge(
     string AnchorProjectId,
     IReadOnlyList<string> InterruptedProjectIds);
 
+public enum WorkEventAggregationState
+{
+    Direct,
+    Suspended,
+    BridgeCandidate,
+    Bridged,
+    Closed
+}
+
+public sealed record WorkEventAggregationDecision(
+    string ProjectId,
+    WorkEventAggregationState State,
+    DateTimeOffset At,
+    string Reason,
+    int DirectSinceLastBridgeSeconds,
+    int? GapSeconds = null,
+    IReadOnlyList<string>? InterruptedProjectIds = null);
+
+public sealed record WorkEventAggregationResult(
+    IReadOnlyList<WorkEvent> Events,
+    IReadOnlyList<WorkEventAggregationDecision> Decisions);
+
 public sealed record WorkEvent(
     string Id,
     string? ProjectId,

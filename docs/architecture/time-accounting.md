@@ -55,7 +55,7 @@ After the configured idle threshold, foreground auto tracking stops accumulating
 
 Raw automatic foreground sessions remain sequential on a device, but WPF can project multiple sessions into one Work Event. Event aggregation never removes the underlying sessions.
 
-A short observed interruption may create a **Continuity Bridge** for the anchor Project when the user returns within 120 seconds after at least 120 seconds of direct anchor work. The interrupted Project retains its direct time, so the bridge intentionally increases additive Effort without increasing elapsed Coverage. Idle, pause, sleep and unobserved gaps are never bridged.
+A short observed interruption may create a **Continuity Bridge** for a Project when the user returns within 120 seconds after at least 60 seconds of initial direct work. After that Project uses a bridge, it needs 120 seconds of new direct work before its next bridge. Continuity is evaluated independently per Project, so mutual and multi-project bridges are valid and can intentionally increase additive Effort far beyond wall-clock Coverage. Idle, pause, sleep, WorkTracker UI and unobserved gaps are never bridged.
 
 Same-Project application switching is different: if PhpStorm Project A is followed by Browser Project A, both segments are direct Project A time and are merged into one Work Event without duplicate credit.
 

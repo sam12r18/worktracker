@@ -53,3 +53,27 @@ Reassigning a Work Event updates every raw foreground session represented by tha
 ## Activity Type safety
 
 Automatic Project inference may be deterministic enough for billing. Automatic Activity Type inference has a higher semantic risk. Therefore alpha.7.3 infers only explicit Debug/Test signals and leaves ambiguous IDE work untyped. Deeper IDE integrations are scheduled for 0.2.
+
+
+## Per-project continuity state machine
+
+Continuity is not a single global state. Every classified Project owns an independent projection state:
+
+```text
+Direct → Suspended → BridgeCandidate → Bridged → Direct
+                              ↘ Closed
+```
+
+Defaults in alpha.7.3:
+
+- initial direct anchor: 60s
+- maximum observed interruption: 120s
+- re-arm after a successful bridge: 120s of new direct work for that same Project
+
+Mutual and multi-project bridges are allowed. A direct span of Project B remains available as an interruption span for Project A while also remaining direct work for Project B's own continuity projection. No global `Absorbed` flag may remove a span from another Project's projection.
+
+Idle, pause, sleep, WorkTracker's own UI and genuinely unobserved foreground gaps close continuity because the interruption cannot be proven from captured foreground spans.
+
+## Project Pulse widget
+
+The Windows Agent includes a small always-on-top `ProjectPulseWidget`. It shows the three most recently active Projects, today's credited time per Project, direct vs continuity time, current application/state, and global Effort/Coverage/Concurrent counters. The current foreground segment is projected in memory before it is flushed to SQLite, so the active Project counter advances live without changing the raw persistence model.

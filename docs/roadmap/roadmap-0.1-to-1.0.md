@@ -37,9 +37,10 @@ Project/Customer master-data UI, Project Rule management, contextual help, Task 
 - Stable IDE Context normalization to prevent one visible event per file/tab.
 - Same-Project aggregation across applications without duplicate project credit.
 - Event-level correction and Assign + Learn using stable workspace patterns.
-- Bounded 120-second Continuity Bridge with anchor/rearm guard for short cross-Project interruptions.
+- Per-project Continuity Bridge: 60s initial anchor, max 120s interruption, 120s per-project re-arm, with mutual/multi-project bridges allowed.
 - Rule Builder pattern suggestion + recent-activity match preview.
 - Conservative explicit Debug/Test inference; ambiguous IDE foreground stays untyped.
+- P0 Agent core completed: explicit continuity decision state, mutual/multi-project bridge projection, deterministic build self-test, live Project Pulse widget and decision logging.
 - Follow-up inside this workstream: server report/invoice parity for derived continuity credits.
 
 ## 0.2 — Browser/IDE enrichment

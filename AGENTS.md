@@ -22,8 +22,9 @@ The auto-foreground stream on one device must remain sequential because Windows 
 - Raw `activity_sessions` remain auditable source records; do not destructively compact them just to make the UI cleaner.
 - WPF may aggregate adjacent raw foreground sessions into a derived Work Event.
 - Same-Project switching between applications is one logical Work Event when contiguous and must not create duplicate Project credit.
-- A bounded Continuity Bridge may credit the anchor Project across an **observed** interruption of at most 120 seconds only after at least 120 seconds of direct anchor work, and must re-arm with another 120 seconds of direct anchor work before another bridge.
-- Idle, pause, sleep and unobserved gaps must never receive automatic continuity credit.
+- A bounded Continuity Bridge may credit a Project across an **observed** interruption of at most 120 seconds after at least 60 seconds of initial direct work. After that Project uses a bridge, it must re-arm with 120 seconds of new direct work before its next bridge.
+- Continuity is evaluated independently per Project. Mutual and multi-project bridges are valid; never add a global anchor/lock or cap the resulting additive Effort to wall time.
+- Idle, pause, sleep, WorkTracker UI and unobserved gaps must never receive automatic continuity credit.
 - Continuity Bridge is derived, not a new raw source in alpha.7.3. Server reporting/billing must not silently assume bridge parity until that sub-phase is implemented.
 
 ## 2. Architecture constraints

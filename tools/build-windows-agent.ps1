@@ -82,4 +82,17 @@ Invoke-DotNetStep -Label 'dotnet info' -Arguments @('--info')
 Invoke-DotNetStep -Label 'restore' -Arguments @('restore', $project)
 Invoke-DotNetStep -Label 'build Release' -Arguments @('build', $project, '-c', 'Release', '--no-restore')
 
-Write-Host '==> Build succeeded.' -ForegroundColor Green
+Write-Host '==> Activity Intelligence deterministic self-test'
+$selfTestDll = Join-Path $agentRoot 'bin\Release\net10.0-windows\WorkTracker.Agent.dll'
+$selfTestOutput = Join-Path ([System.IO.Path]::GetTempPath()) 'worktracker-activity-intelligence-self-test.txt'
+if (Test-Path $selfTestOutput) { Remove-Item $selfTestOutput -Force }
+& dotnet $selfTestDll '--self-test-activity-intelligence'
+$selfTestExit = $LASTEXITCODE
+if (Test-Path $selfTestOutput) {
+    Get-Content $selfTestOutput | ForEach-Object { Write-Host "    $_" }
+}
+if ($selfTestExit -ne 0) {
+    throw "Activity Intelligence self-test failed with exit code $selfTestExit."
+}
+
+Write-Host '==> Build and Activity Intelligence self-test succeeded.' -ForegroundColor Green

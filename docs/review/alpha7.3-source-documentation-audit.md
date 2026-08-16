@@ -39,7 +39,7 @@ Correction: alpha.7.3 introduces a separate conservative Activity Type inference
 
 The documented additive model allows genuine parallel credit, but foreground aggregation had no bounded representation for a short interruption while the user immediately resumes the anchor Project.
 
-Correction: ADR 0014 introduces a derived Continuity Bridge with a 120-second maximum, 120-second anchor requirement, 120-second re-arm requirement and no credit for idle/pause/sleep/unobserved gaps.
+Correction: ADR 0014 now defines a per-project derived Continuity Bridge with a 120-second maximum interruption, 60-second initial anchor requirement, 120-second per-project re-arm requirement, mutual/multi-project bridge support, and no credit for idle/pause/sleep/WorkTracker UI/unobserved gaps.
 
 ## Deliberate open gaps
 

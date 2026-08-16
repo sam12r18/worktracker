@@ -46,15 +46,16 @@ For known Projects, project identity is stronger than application identity. Ther
 Default alpha.7.3 values:
 
 - `continuity_bridge_max_seconds = 120`
-- `continuity_anchor_minimum_seconds = 120`
+- `continuity_initial_anchor_minimum_seconds = 60`
+- `continuity_bridge_rearm_seconds = 120`
 
 A bridge may be created only when all of the following are true:
 
-1. Project A has at least 120 seconds of direct foreground work in the current anchor run.
+1. Project A has at least 60 seconds of direct foreground work in the initial anchor run.
 2. Foreground leaves Project A.
 3. At least one other foreground interruption is actually observed. Unobserved gaps, pause, idle, sleep and time inside the WorkTracker UI are not bridged.
 4. The user returns to Project A within at most 120 seconds.
-5. After a bridge is used, at least another 120 seconds of direct Project A foreground work is required before a second bridge can be applied. This prevents rapid A/B oscillation from automatically crediting both Projects for nearly the whole period.
+5. After a bridge is used, Project A needs another 120 seconds of direct foreground work before **Project A itself** may use another bridge. This is a per-project re-arm rule, not a global lock.
 
 Example:
 
@@ -72,6 +73,27 @@ Derived result:
 If the interruption is 5 minutes, no bridge is created and Project A is split into separate Work Events.
 
 If the middle browser activity is also Project A, it is direct Project A time, not a bridge, and is counted exactly once for Project A.
+
+### Mutual and multi-project bridges are valid
+
+Continuity is evaluated independently per Project. There is **no global continuity anchor** and no rule that prevents Project B from bridging while Project A also has a valid bridge. This is intentional because WorkTracker models additive effort rather than forcing project effort to equal wall-clock time.
+
+Example:
+
+- 10:00–10:10 Project A
+- 10:10–10:11 Project B
+- 10:11–10:12 Project A
+- 10:12–10:20 Project B
+- 10:20–10:30 Project A
+
+Derived result with the default policy:
+
+- Project A: 21m direct + 1m bridge = **22m credited**. The later 8-minute interruption cannot bridge because it exceeds the 120-second bridge limit.
+- Project B: 9m direct + 1m bridge over the 10:11–10:12 Project A span = **10m credited**.
+- Coverage = 30m.
+- Effort = 32m.
+
+The A bridge and B bridge are both valid. With three or more Projects, several continuity projections may overlap when each Project independently satisfies its initial/re-arm and return constraints. A one-hour wall-clock period may therefore legitimately produce 2.5 person-hours/project-hours of credited Effort. WorkTracker must not normalize or cap this derived effort.
 
 ## Accounting boundary in alpha.7.3
 

@@ -5,8 +5,9 @@
 - Added Work Event projection over raw Activity Sessions.
 - Same-Project foreground segments are aggregated even when application/title changes.
 - Unknown IDE sessions use normalized workspace Context so file switching does not flood the visible inbox.
-- Added bounded 120-second Continuity Bridge with 120-second anchor/rearm requirement and anti-oscillation behavior.
+- Added per-project bounded Continuity Bridge with a 60-second initial anchor, 120-second maximum interruption and 120-second per-project re-arm. Mutual and multi-project bridges are intentionally valid and additive.
 - Local Effort includes derived bridge credit while Coverage remains wall-clock union.
+- Added the always-on-top Project Pulse widget with live counters for the three most recent Projects.
 - Event-level Project correction and Activity Type assignment update all represented raw sessions.
 - Assign + Learn uses stable IDE workspace patterns.
 - Added conservative explicit Debug/Test Activity Type inference; ambiguous IDE foreground remains untyped.

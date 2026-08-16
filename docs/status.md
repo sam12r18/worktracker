@@ -11,7 +11,7 @@ Current release: **0.1.0-alpha.7.3 — Activity Intelligence & Work Events**
 - alpha.6: Activity Type selection/correction in Windows, billing configuration Pull, effective-dated pricing history and invoice draft/final lifecycle.
 - alpha.7: historical Activity editor + Audit Log, daily/weekly/monthly/custom reports, visual overlap timeline, responsive dashboard redesign.
 - alpha.7.2: first-class Project/Customer admin UI, Project Rules, project Tasks, pricing override lifecycle/history visibility, Activity Type activation/order, dedicated Access Token UI, route-aware contextual Help, Agent reliability and Sync diagnostics.
-- alpha.7.3: Work Event projection, IDE context normalization, event-level correction/learning, bounded short Continuity Bridge, Rule pattern preview and conservative explicit Debug/Test inference.
+- alpha.7.3: Work Event projection, IDE context normalization, event-level correction/learning, per-project short Continuity Bridges with mutual overlap, Project Pulse widget, Rule pattern preview and conservative explicit Debug/Test inference.
 
 ## Important semantics
 - Effort is additive. Legitimate overlap is never capped to wall-clock coverage.
@@ -40,3 +40,12 @@ Current release: **0.1.0-alpha.7.3 — Activity Intelligence & Work Events**
 - Added Outbox diagnostics for total/due/delayed/failed rows plus last error and next retry time.
 - Added a safe retry action that removes only backoff delay and immediately retries queued rows.
 - Sanctum tokens and Authorization headers are intentionally excluded from diagnostic logs.
+
+
+## alpha.7.3 P0 Activity Intelligence core
+- Initial continuity anchor reduced to 60 seconds; bridge max remains 120 seconds and per-project re-arm remains 120 seconds.
+- Continuity chains are independent per Project; mutual and 3+ Project bridge overlap is explicitly valid and additive.
+- Aggregation exposes Direct/Suspended/BridgeCandidate/Bridged/Closed decisions and logs bridge/close decisions for diagnosis.
+- Same-Project app/title changes stay one projected Work Event while raw sessions remain auditable.
+- Windows build now runs deterministic Activity Intelligence scenarios after Release compilation.
+- Project Pulse widget shows the three most recent Projects with live credited/direct/bridge counters and overall Effort/Coverage/Concurrent.

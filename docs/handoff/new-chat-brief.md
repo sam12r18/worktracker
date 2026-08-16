@@ -12,7 +12,7 @@ Before coding read, in order:
 
 Key invariants:
 - Legitimate overlapping Activities are additive, including same user/device/project/time range.
-- Raw Activity Sessions are source records; Work Events are derived projections. A short Continuity Bridge may add bounded Project credit without deleting the interruption Project time.
+- Raw Activity Sessions are source records; Work Events are derived projections. A short Continuity Bridge may add bounded Project credit without deleting interruption time. Bridges are evaluated independently per Project, so mutual and multi-project overlap is valid; defaults are 60s initial anchor, 120s max interruption and 120s per-project re-arm.
 - Device timelines are independent; never cross-device normalize.
 - Windows remains offline-first and a Windows user may run only one WorkTracker Agent instance at a time.
 - Device Token is least-privilege, bound to its Device UUID and cannot author Billing configuration.
