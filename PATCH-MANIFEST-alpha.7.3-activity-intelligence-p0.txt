@@ -1,0 +1,39 @@
+WorkTracker alpha.7.3 Activity Intelligence P0 patch
+
+Core
+- apps/windows-agent/WorkTracker.Agent/Services/WorkEventAggregationService.cs
+- apps/windows-agent/WorkTracker.Agent/Domain/WorkEvent.cs
+- apps/windows-agent/WorkTracker.Agent/Tracking/TrackingEngine.cs
+- apps/windows-agent/WorkTracker.Agent/Tracking/LiveActivitySnapshot.cs
+- apps/windows-agent/WorkTracker.Agent/Diagnostics/ActivityIntelligenceSelfTest.cs
+
+Project Pulse widget
+- apps/windows-agent/WorkTracker.Agent/ProjectPulseWidget.xaml
+- apps/windows-agent/WorkTracker.Agent/ProjectPulseWidget.xaml.cs
+- apps/windows-agent/WorkTracker.Agent/ViewModels/ProjectPulseRow.cs
+- apps/windows-agent/WorkTracker.Agent/App.xaml.cs
+- apps/windows-agent/WorkTracker.Agent/MainWindow.xaml
+- apps/windows-agent/WorkTracker.Agent/MainWindow.xaml.cs
+- apps/windows-agent/WorkTracker.Agent/Tray/TrayIconService.cs
+
+Build
+- tools/build-windows-agent.ps1
+
+Documentation
+- AGENTS.md
+- README.md
+- README-COMPLETE.md
+- docs/adr/0014-work-events-context-normalization-and-continuity-bridge.md
+- docs/architecture/activity-intelligence.md
+- docs/architecture/time-accounting.md
+- docs/architecture/project-pulse-widget.md
+- docs/testing/alpha7.3-activity-intelligence-smoke-test.md
+- docs/roadmap/roadmap-0.1-to-1.0.md
+- docs/status.md
+- docs/review/alpha7.3-source-documentation-audit.md
+- docs/handoff/current-project-map.md
+- docs/handoff/new-chat-brief.md
+- docs/handoff/release-0.1.0-alpha.7.3.md
+
+Patch notes
+- HOTFIX-alpha.7.3-activity-intelligence-p0.md
