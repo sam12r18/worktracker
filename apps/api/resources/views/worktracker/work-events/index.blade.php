@@ -19,6 +19,11 @@
                     <option value="{{ $project->id }}" @selected((string)$projectId===(string)$project->id)>{{ $project->name }}</option>
                 @endforeach
             </select>
+            <select name="per_page" aria-label="تعداد در صفحه">
+                @foreach([25, 50, 100, 200] as $size)
+                    <option value="{{ $size }}" @selected($perPage === $size)>{{ $size }} در صفحه</option>
+                @endforeach
+            </select>
             <button class="wt-btn-primary">اعمال</button>
         </form>
     </x-slot:actions>
@@ -49,6 +54,17 @@
 </x-worktracker.panel>
 
 <x-worktracker.panel title="Work Eventها">
+    <div class="wt-row" style="justify-content:space-between;margin-bottom:10px">
+        <div class="wt-muted">
+            @if($events->total())
+                نمایش {{ $events->firstItem() }} تا {{ $events->lastItem() }} از {{ $events->total() }} Work Event
+            @else
+                Work Eventی برای این فیلتر وجود ندارد.
+            @endif
+        </div>
+        <div class="wt-muted">صفحه {{ $events->currentPage() }} از {{ $events->lastPage() }}</div>
+    </div>
+
     <x-worktracker.table>
         <thead>
             <tr><th>زمان</th><th>پروژه</th><th>دستگاه</th><th>Direct</th><th>Bridge</th><th>Credited</th><th>Segments</th><th>جزئیات</th></tr>
@@ -98,5 +114,9 @@
         @endforelse
         </tbody>
     </x-worktracker.table>
+
+    @if($events->hasPages())
+        <div style="margin-top:14px">{{ $events->links() }}</div>
+    @endif
 </x-worktracker.panel>
 @endsection

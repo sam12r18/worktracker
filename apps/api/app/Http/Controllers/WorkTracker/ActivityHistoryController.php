@@ -38,9 +38,15 @@ class ActivityHistoryController extends Controller
             $query->where('project_id', $request->query('project_id'));
         }
 
-        $activities = $query->get();
+        $perPage = (int) $request->integer('per_page', 50);
+        $perPage = in_array($perPage, [25, 50, 100, 200], true) ? $perPage : 50;
+
+        $activities = $query
+            ->paginate($perPage)
+            ->withQueryString();
+
         $billed = BillingRateSnapshot::query()
-            ->whereIn('activity_session_id', $activities->pluck('id'))
+            ->whereIn('activity_session_id', $activities->getCollection()->pluck('id'))
             ->pluck('activity_session_id')
             ->flip();
 
@@ -56,6 +62,7 @@ class ActivityHistoryController extends Controller
                 ->get(),
             'date' => $date,
             'timezone' => $timezone,
+            'perPage' => $perPage,
         ]);
     }
 

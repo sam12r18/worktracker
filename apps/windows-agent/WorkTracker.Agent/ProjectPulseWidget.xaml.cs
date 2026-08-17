@@ -197,18 +197,35 @@ public partial class ProjectPulseWidget : Window
         CompactPulseRowsList.Visibility = _isCompact ? Visibility.Visible : Visibility.Collapsed;
         PulseSummaryPanel.Visibility = _isCompact ? Visibility.Collapsed : Visibility.Visible;
         CompactSummaryPanel.Visibility = _isCompact ? Visibility.Visible : Visibility.Collapsed;
-        CompactModeButton.Content = _isCompact ? "کامل" : "فشرده";
+        CompactModeButton.Content = _isCompact ? "↗" : "فشرده";
+        CompactModeButton.ToolTip = _isCompact ? "نمای کامل" : "نمای فشرده";
 
         if (_isCompact)
         {
-            MinWidth = 220;
-            MinHeight = 132;
-            Width = 238;
-            Height = 146;
+            RootCard.Padding = new Thickness(8);
+            RootCard.CornerRadius = new CornerRadius(14);
+            CompactModeButton.Width = 24;
+            CompactModeButton.MinWidth = 24;
+            CompactModeButton.Padding = new Thickness(0);
+            CompactModeButton.FontSize = 12;
+            HideWidgetButton.Width = 24;
+            HideWidgetButton.MinWidth = 24;
+            MinWidth = 214;
+            MinHeight = 126;
+            Width = 232;
+            Height = 142;
             ResizeMode = ResizeMode.NoResize;
         }
         else
         {
+            RootCard.Padding = new Thickness(10);
+            RootCard.CornerRadius = new CornerRadius(12);
+            CompactModeButton.Width = double.NaN;
+            CompactModeButton.MinWidth = 36;
+            CompactModeButton.Padding = new Thickness(6, 0, 6, 0);
+            CompactModeButton.FontSize = 10.5;
+            HideWidgetButton.Width = 24;
+            HideWidgetButton.MinWidth = 24;
             MinWidth = 300;
             MinHeight = 255;
             Width = _normalWidth;

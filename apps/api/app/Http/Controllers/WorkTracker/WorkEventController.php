@@ -25,9 +25,26 @@ class WorkEventController extends Controller
         $dayStart = CarbonImmutable::parse($date, $timezone)->startOfDay();
         $dayEnd = $dayStart->addDay();
 
-        $query = WorkEvent::query()
+        $baseQuery = WorkEvent::query()
             ->where('user_id', $userId)
-            ->whereDate('projection_date', $date)
+            ->whereDate('projection_date', $date);
+
+        if ($deviceId) $baseQuery->where('device_id', $deviceId);
+        if ($projectId) $baseQuery->where('project_id', $projectId);
+
+        $summaryRow = (clone $baseQuery)
+            ->selectRaw('COALESCE(SUM(direct_seconds), 0) as direct_seconds')
+            ->selectRaw('COALESCE(SUM(bridge_seconds), 0) as bridge_seconds')
+            ->selectRaw('COALESCE(SUM(credited_seconds), 0) as credited_seconds')
+            ->selectRaw('COUNT(*) as events_count')
+            ->selectRaw('COALESCE(SUM(bridge_count), 0) as bridges_count')
+            ->selectRaw('COALESCE(SUM(segment_count), 0) as segments_count')
+            ->first();
+
+        $perPage = (int) $request->integer('per_page', 50);
+        $perPage = in_array($perPage, [25, 50, 100, 200], true) ? $perPage : 50;
+
+        $events = (clone $baseQuery)
             ->with([
                 'project:id,name,code',
                 'device:id,name,operator_label',
@@ -35,11 +52,9 @@ class WorkEventController extends Controller
                 'segments.activitySession.activityType:id,name',
                 'bridges',
             ])
-            ->orderBy('started_at');
-
-        if ($deviceId) $query->where('device_id', $deviceId);
-        if ($projectId) $query->where('project_id', $projectId);
-        $events = $query->get();
+            ->orderBy('started_at')
+            ->paginate($perPage)
+            ->withQueryString();
 
         $rawQuery = ActivitySession::query()
             ->where('user_id', $userId)
@@ -49,7 +64,7 @@ class WorkEventController extends Controller
         if ($projectId) $rawQuery->where('project_id', $projectId);
         $rawSessionsCount = $rawQuery->count();
 
-        $interruptedProjectIds = $events
+        $interruptedProjectIds = $events->getCollection()
             ->flatMap(fn (WorkEvent $event) => $event->bridges->flatMap(fn ($bridge) => $bridge->interrupted_project_ids ?? []))
             ->unique()
             ->values();
@@ -69,13 +84,14 @@ class WorkEventController extends Controller
             'projectNames' => $projectNames,
             'rawSessionsCount' => $rawSessionsCount,
             'summary' => [
-                'direct_seconds' => (int) $events->sum('direct_seconds'),
-                'bridge_seconds' => (int) $events->sum('bridge_seconds'),
-                'credited_seconds' => (int) $events->sum('credited_seconds'),
-                'events_count' => $events->count(),
-                'bridges_count' => (int) $events->sum('bridge_count'),
-                'segments_count' => (int) $events->sum('segment_count'),
+                'direct_seconds' => (int) ($summaryRow->direct_seconds ?? 0),
+                'bridge_seconds' => (int) ($summaryRow->bridge_seconds ?? 0),
+                'credited_seconds' => (int) ($summaryRow->credited_seconds ?? 0),
+                'events_count' => (int) ($summaryRow->events_count ?? 0),
+                'bridges_count' => (int) ($summaryRow->bridges_count ?? 0),
+                'segments_count' => (int) ($summaryRow->segments_count ?? 0),
             ],
+            'perPage' => $perPage,
         ]);
     }
 

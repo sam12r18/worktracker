@@ -1,12 +1,5 @@
-WorkTracker alpha.7.3 reliability patch
-
-Fixes:
-- Audit model table mapping: worktracker_audit_logs
-- Editable Activity Type code for user-owned types
-- Browser Assign + Learn stable title-segment learning and immediate rule Sync
-- Exact Sync outbox acknowledgement via client_outbox_id
-- Project Rule outbox priority
-- Activity Intelligence self-test for browser learning
-- Sync and Activity Intelligence documentation updates
-
-No Laravel migration is required.
+HOTFIX-alpha.7.3-pagination-activity-modal.md
+apps/api/app/Http/Controllers/WorkTracker/ActivityHistoryController.php
+apps/api/app/Http/Controllers/WorkTracker/WorkEventController.php
+apps/api/resources/views/worktracker/activities/index.blade.php
+apps/api/resources/views/worktracker/work-events/index.blade.php
