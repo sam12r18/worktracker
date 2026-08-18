@@ -1,0 +1,8 @@
+WorkTracker alpha.7.3 — call-meeting Activity Type hotfix
+
+Changed files:
+- apps/windows-agent/WorkTracker.Agent/ProjectPulseWidget.xaml.cs
+- docs/architecture/project-pulse-widget.md
+- HOTFIX-alpha.7.3-call-meeting-activity-type.md
+
+No migration required.

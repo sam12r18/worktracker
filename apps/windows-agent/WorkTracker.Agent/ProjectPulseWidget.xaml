@@ -3,9 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="WorkTracker Pulse"
         Width="330"
-        Height="292"
+        Height="330"
         MinWidth="300"
-        MinHeight="255"
+        MinHeight="290"
         WindowStyle="None"
         ResizeMode="CanResizeWithGrip"
         ShowInTaskbar="False"
@@ -33,7 +33,33 @@
 
             <DockPanel LastChildFill="True">
                 <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" FlowDirection="LeftToRight">
+                    <Button x:Name="PhoneCallStartButton"
+                            Content="☎"
+                            Width="24"
+                            MinWidth="24"
+                            Height="24"
+                            MinHeight="24"
+                            Padding="0"
+                            FontSize="13"
+                            Foreground="{StaticResource WtSuccessBrush}"
+                            IsEnabled="False"
+                            Click="PhoneCallStartButton_Click"
+                            ToolTip="شروع تماس تلفنی برای پروژه فعال"/>
+                    <Button x:Name="PhoneCallStopButton"
+                            Content="■"
+                            Width="24"
+                            MinWidth="24"
+                            Height="24"
+                            MinHeight="24"
+                            Padding="0"
+                            Margin="4,0,0,0"
+                            FontSize="9"
+                            Style="{StaticResource WtDangerButton}"
+                            IsEnabled="False"
+                            Click="PhoneCallStopButton_Click"
+                            ToolTip="پایان تماس تلفنی"/>
                     <Button x:Name="CompactModeButton"
+                            Margin="4,0,0,0"
                             Content="فشرده"
                             MinWidth="36"
                             Height="24"
@@ -56,7 +82,7 @@
                 </StackPanel>
                 <StackPanel x:Name="NormalHeaderText">
                     <TextBlock Text="فعالیت‌های اخیر" FontSize="15" FontWeight="SemiBold"/>
-                    <TextBlock x:Name="WidgetStateText" Text="سه پروژه آخر · زمان اعتباری امروز" Margin="0,3,0,0" FontSize="10.5" Foreground="{StaticResource WtMutedBrush}"/>
+                    <TextBlock x:Name="WidgetStateText" Text="چهار مورد اخیر · زمان اعتباری امروز" Margin="0,3,0,0" FontSize="10.5" Foreground="{StaticResource WtMutedBrush}"/>
                 </StackPanel>
                 <TextBlock x:Name="CompactHeaderText" Text="WorkTracker" FontSize="12" FontWeight="SemiBold" VerticalAlignment="Center" Visibility="Collapsed"/>
             </DockPanel>

@@ -34,6 +34,8 @@ A Windows desktop has one foreground window at a time. The auto-foreground track
 
 Multiple manual timers may run concurrently. Starting a manual timer never pauses automatic capture and never pauses another manual timer.
 
+The Project Pulse quick-phone action is a specialized manual timer. If the current classified Project is Ketabnow and a phone call is started while PhpStorm remains active on Ketabnow, both intervals are valid and additive. For example, a 10-minute call concurrent with 10 minutes of foreground development may produce 20 minutes of Project Effort over 10 minutes of Coverage. Ending the call persists one independent `manual_timer` Activity Session and does not alter the foreground session.
+
 ## Reporting
 
 Reports should expose at minimum:

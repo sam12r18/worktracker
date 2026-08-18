@@ -1,0 +1,12 @@
+WorkTracker alpha.7.3 — Project Pulse quick phone call
+
+Changed files:
+- apps/windows-agent/WorkTracker.Agent/ProjectPulseWidget.xaml
+- apps/windows-agent/WorkTracker.Agent/ProjectPulseWidget.xaml.cs
+- apps/windows-agent/WorkTracker.Agent/App.xaml.cs
+- apps/windows-agent/WorkTracker.Agent/Services/ManualTimerService.cs
+- docs/architecture/project-pulse-widget.md
+- docs/architecture/time-accounting.md
+- HOTFIX-alpha.7.3-project-pulse-phone-call.md
+
+No Laravel migration is required.

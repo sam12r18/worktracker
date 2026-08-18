@@ -112,7 +112,7 @@ public partial class App : System.Windows.Application
                 syncSettings,
                 outbox,
                 deviceId);
-            _widget = new ProjectPulseWidget(repository, projects, _tracking);
+            _widget = new ProjectPulseWidget(repository, projects, activityTypes, manualTimer, _tracking, _sync);
 
             _tray.ShowRequested += (_, _) => ShowWindow();
             _tray.WidgetRequested += (_, _) => ShowWidget();
