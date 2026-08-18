@@ -11,6 +11,7 @@ using System.Windows.Threading;
 using WorkTracker.Agent.Classification;
 using WorkTracker.Agent.Diagnostics;
 using WorkTracker.Agent.Domain;
+using WorkTracker.Agent.Integrations.Ide;
 using WorkTracker.Agent.Services;
 using WorkTracker.Agent.Storage;
 using WorkTracker.Agent.Tracking;
@@ -21,12 +22,12 @@ namespace WorkTracker.Agent;
 
 public partial class MainWindow : Window
 {
-    private readonly string _deviceId; private readonly TrackingEngine _tracking; private readonly ManualTimerService _manualTimer; private readonly ActivitySessionRepository _repository; private readonly ProjectRepository _projects; private readonly ActivityTypeRepository _activityTypes; private readonly ActivityTypeRuleRepository _activityTypeRules; private readonly ActivityCorrectionService _corrections; private readonly SyncEngine _sync; private readonly SyncSettingsStore _syncSettings; private readonly SyncOutboxRepository _syncOutbox; private readonly DispatcherTimer _uiTimer; private bool _allowClose; private string? _lastBridgeSignature; private string? _lastAggregationDecisionSignature;
+    private readonly string _deviceId; private readonly TrackingEngine _tracking; private readonly ManualTimerService _manualTimer; private readonly ActivitySessionRepository _repository; private readonly ProjectRepository _projects; private readonly ActivityTypeRepository _activityTypes; private readonly ActivityTypeRuleRepository _activityTypeRules; private readonly ActivityCorrectionService _corrections; private readonly SyncEngine _sync; private readonly SyncSettingsStore _syncSettings; private readonly SyncOutboxRepository _syncOutbox; private readonly IdeContextBridgeService _ideContext; private readonly DispatcherTimer _uiTimer; private bool _allowClose; private string? _lastBridgeSignature; private string? _lastAggregationDecisionSignature;
     public event EventHandler? HideRequested; public event EventHandler? ExitRequested; public event EventHandler? WidgetRequested;
 
-    public MainWindow(TrackingEngine tracking, ManualTimerService manualTimer, ActivitySessionRepository repository, ProjectRepository projects, ActivityTypeRepository activityTypes, ActivityTypeRuleRepository activityTypeRules, ActivityCorrectionService corrections, SyncEngine sync, SyncSettingsStore syncSettings, SyncOutboxRepository syncOutbox, string deviceId)
+    public MainWindow(TrackingEngine tracking, ManualTimerService manualTimer, ActivitySessionRepository repository, ProjectRepository projects, ActivityTypeRepository activityTypes, ActivityTypeRuleRepository activityTypeRules, ActivityCorrectionService corrections, SyncEngine sync, SyncSettingsStore syncSettings, SyncOutboxRepository syncOutbox, IdeContextBridgeService ideContext, string deviceId)
     {
-        InitializeComponent(); _deviceId=deviceId; _tracking=tracking;_manualTimer=manualTimer;_repository=repository;_projects=projects;_activityTypes=activityTypes;_activityTypeRules=activityTypeRules;_corrections=corrections;_sync=sync;_syncSettings=syncSettings;_syncOutbox=syncOutbox;
+        InitializeComponent(); _deviceId=deviceId; _tracking=tracking;_manualTimer=manualTimer;_repository=repository;_projects=projects;_activityTypes=activityTypes;_activityTypeRules=activityTypeRules;_corrections=corrections;_sync=sync;_syncSettings=syncSettings;_syncOutbox=syncOutbox;_ideContext=ideContext;
         SourceInitialized += (_, _) => ApplyDarkWindowChrome();
         DeviceText.Text=$"دستگاه: {Environment.MachineName} · {deviceId[..Math.Min(10,deviceId.Length)]}";
         _sync.StatusChanged+=(_,status)=>Dispatcher.Invoke(()=>UpdateSyncStatus(status)); _tracking.StateChanged+=(_,_)=>Dispatcher.Invoke(UpdateTrackingState); _tracking.ForegroundChanged+=(_,snapshot)=>Dispatcher.Invoke(()=>{TodaySummary.CurrentActivity=snapshot?.WindowTitle??"بدون فعالیت فعال";TodaySummary.CurrentProcess=snapshot?.ProcessName??"-";}); _tracking.SessionSaved+=async(_,_)=>await Dispatcher.InvokeAsync(RefreshAsync);
@@ -64,6 +65,7 @@ public partial class MainWindow : Window
             UnknownProjectCombo.ItemsSource = projects;
             AssignedProjectCombo.ItemsSource = projects;
             LocalConfigText.Text = $"پروژه محلی: {projects.Count} · نوع فعالیت: {activityTypes.Count} · Rule نوع فعالیت: {activityTypeRules.Count}";
+            IdeContextStatusText.Text = FormatIdeContextStatus(_ideContext.GetStatus());
 
             if (manualSelected is not null) ManualProjectCombo.SelectedValue = manualSelected;
             if (manualTypeSelected is not null) ManualActivityTypeCombo.SelectedValue = manualTypeSelected;
@@ -363,6 +365,15 @@ public partial class MainWindow : Window
         await AgentLog.ClearAsync();
         await AgentLog.InfoAsync("diagnostics", "logs cleared by user");
         await RefreshLogsAsync();
+    }
+
+    private static string FormatIdeContextStatus(IdeContextBridgeStatus status)
+    {
+        if (!status.Connected) return $"PhpStorm Context: {status.Message}";
+        var run = status.Mode == "idle" ? "idle" : status.Mode;
+        var branch = status.Branch == "-" ? string.Empty : $" · Git {status.Branch}";
+        var file = status.File == "-" ? string.Empty : $" · {status.File}";
+        return $"PhpStorm Context: متصل · {status.Project} · {run}{branch}{file} · {status.AgeSeconds}s";
     }
 
     private static string FormatQueueDiagnostics(SyncQueueDiagnostics q)

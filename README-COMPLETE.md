@@ -1,9 +1,12 @@
-# WorkTracker 0.1.0-alpha.7.3 — Complete Package
+# WorkTracker 0.1.0-alpha.8.0 — Complete Package
 
 ## ساختار
 - `apps/api/` — Laravel 12 کامل و مستقل (نه overlay)
 - `apps/windows-agent/WorkTracker.Agent/` — برنامه WPF ویندوز با Work Event Aggregation، Activity Type Intelligence و ویجت Project Pulse
+- `apps/phpstorm-plugin/` — افزونه PhpStorm برای Project/File/Run/Debug/Test/Git Context
 - `tools/build-windows-agent.ps1` — Build ویندوز
+- `tools/build-phpstorm-plugin.ps1` — Build افزونه PhpStorm
+- `tools/test-alpha8-regression.ps1` — Regression Gate یکپارچه alpha.8
 - `docs/` — مستندات پروژه
 
 ## راه‌اندازی Laravel در Windows

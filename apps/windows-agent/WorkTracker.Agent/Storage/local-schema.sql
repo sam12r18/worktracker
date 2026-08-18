@@ -46,6 +46,7 @@ CREATE TABLE IF NOT EXISTS activity_sessions (
     activity_type_confidence REAL NULL,
     activity_type_source TEXT NULL,
     activity_type_reason TEXT NULL,
+    ide_context_json TEXT NULL,
     is_billable INTEGER NULL,
     source TEXT NOT NULL,
     process_name TEXT NULL,

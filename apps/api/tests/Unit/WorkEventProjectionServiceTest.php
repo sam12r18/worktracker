@@ -33,6 +33,27 @@ class WorkEventProjectionServiceTest extends TestCase
         $this->assertSame(['phpstorm64', 'chrome'], $events[0]['applications']);
     }
 
+    public function test_plugin_context_stabilizes_unknown_phpstorm_sessions_across_file_titles(): void
+    {
+        $ide = [
+            'protocol_version' => 1,
+            'project_name' => 'WorkTracker',
+            'project_path' => 'I:\\worktracker',
+            'execution_mode' => 'idle',
+        ];
+        $first = $this->row('u1', null, '10:00:00', '10:05:00', 'phpstorm64', 'WorkTracker – README.md');
+        $second = $this->row('u2', null, '10:05:00', '10:10:00', 'phpstorm64', 'WorkTracker – SyncEngine.cs');
+        $first['ide_context'] = $ide;
+        $second['ide_context'] = $ide;
+
+        $projection = $this->service->projectRows(collect([$first, $second]));
+        $events = array_values(array_filter($projection['events'], fn (array $event) => $event['event_kind'] === 'unknown_foreground'));
+
+        $this->assertCount(1, $events);
+        $this->assertSame(600, $events[0]['direct_seconds']);
+        $this->assertStringContainsString('ide:phpstorm:', $events[0]['context_key']);
+    }
+
     public function test_mutual_bridge_is_calculated_independently_per_project(): void
     {
         $projection = $this->service->projectRows(collect([

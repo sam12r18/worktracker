@@ -216,3 +216,6 @@ Mutual and multi-project Bridge rows are valid. The same wall-clock interval may
 ### Persistence boundary
 
 The projection is derived and rebuildable. Historical edits and accepted Sync changes rebuild affected local dates. Final invoice calculation still uses raw Activity Sessions until Bridge billing parity is explicitly enabled in a later phase.
+
+## alpha.8 IDE context enrichment
+`activity_sessions.ide_context` is nullable JSON synced from the Windows Agent. It mirrors the local `activity_sessions.ide_context_json` field and stores protocol-v1 PhpStorm metadata such as Project path/name, active file, Git branch, execution mode and Run Configuration. It is audit/reprojection metadata and is not a billing-rate source.

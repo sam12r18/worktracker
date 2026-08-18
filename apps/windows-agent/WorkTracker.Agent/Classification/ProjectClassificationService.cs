@@ -1,3 +1,4 @@
+using System.IO;
 using System.Text.RegularExpressions;
 using WorkTracker.Agent.Diagnostics;
 using WorkTracker.Agent.Domain;
@@ -18,7 +19,58 @@ public sealed class ProjectClassificationService(ProjectRepository projects)
     };
 
     public async Task<ProjectResolution?> ResolveAsync(ForegroundSnapshot snapshot, CancellationToken ct = default)
-        => _resolver.Resolve(snapshot, await projects.GetRulesAsync(ct));
+    {
+        var ideResolution = await ResolveIdeProjectAsync(snapshot, ct);
+        if (ideResolution is not null) return ideResolution;
+        return _resolver.Resolve(snapshot, await projects.GetRulesAsync(ct));
+    }
+
+    private async Task<ProjectResolution?> ResolveIdeProjectAsync(ForegroundSnapshot snapshot, CancellationToken ct)
+    {
+        var ide = snapshot.IdeContext;
+        if (ide is null || string.IsNullOrWhiteSpace(ide.ProjectName) && string.IsNullOrWhiteSpace(ide.ProjectPath)) return null;
+
+        var active = await projects.GetActiveAsync(ct);
+        var hints = new List<(string Value, string Reason)>();
+        if (!string.IsNullOrWhiteSpace(ide.ProjectName)) hints.Add((NormalizeProjectHint(ide.ProjectName!), "ide_plugin_project_name"));
+        if (!string.IsNullOrWhiteSpace(ide.ProjectPath))
+        {
+            var leaf = Path.GetFileName(ide.ProjectPath!.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (!string.IsNullOrWhiteSpace(leaf)) hints.Add((NormalizeProjectHint(leaf), "ide_plugin_project_path_leaf"));
+        }
+
+        var matches = new List<(Project Project, string Reason)>();
+        foreach (var project in active)
+        {
+            var projectKeys = new[] { project.Name, project.Code }
+                .Where(x => !string.IsNullOrWhiteSpace(x))
+                .Select(x => NormalizeProjectHint(x!))
+                .Where(x => x.Length >= 2)
+                .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var hint in hints)
+            {
+                if (hint.Value.Length >= 2 && projectKeys.Contains(hint.Value))
+                {
+                    matches.Add((project, hint.Reason));
+                    break;
+                }
+            }
+        }
+
+        var distinct = matches.GroupBy(x => x.Project.Id, StringComparer.OrdinalIgnoreCase).Select(x => x.First()).ToList();
+        if (distinct.Count != 1) return null;
+
+        var winner = distinct[0];
+        return new ProjectResolution(
+            winner.Project.Id,
+            120,
+            1.0,
+            new[] { $"{winner.Reason}:{ide.ProjectName ?? ide.ProjectPath}" });
+    }
+
+    private static string NormalizeProjectHint(string value)
+        => new(value.Trim().ToLowerInvariant().Where(char.IsLetterOrDigit).ToArray());
 
     public async Task<ProjectRule?> LearnFromAsync(string projectId, ForegroundSnapshot snapshot, ProjectRuleType preferredType = ProjectRuleType.WindowTitle, CancellationToken ct = default)
     {

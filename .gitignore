@@ -11,4 +11,5 @@ node_modules/
 *.db-shm
 *.db-wal
 .DS_Store
-*.zip
+**/.gradle/
+apps/phpstorm-plugin/build/

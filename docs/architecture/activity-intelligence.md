@@ -52,7 +52,7 @@ Reassigning a Work Event updates every raw foreground session represented by tha
 
 ## Activity Type safety
 
-Automatic Project inference may be deterministic enough for billing. Automatic Activity Type inference has a higher semantic risk. Therefore alpha.7.3 infers only explicit Debug/Test signals and leaves ambiguous IDE work untyped. Deeper IDE integrations are scheduled for 0.2.
+Automatic Project inference may be deterministic enough for billing. Automatic Activity Type inference has a higher semantic risk. Therefore alpha.7.3 infers only explicit Debug/Test signals and leaves ambiguous IDE work untyped. Deep PhpStorm integration starts in alpha.8.0; VS Code/Visual Studio and browser enrichment remain later work.
 
 
 ## Per-project continuity state machine
@@ -115,4 +115,12 @@ Configured Rule types are `ProcessName`, `WindowTitle`, `ExecutablePath`, `Conte
 
 Rule `priority` is evaluated before accumulated `weight`. At the same priority, a Project-scoped Rule is considered more specific than a global Rule. Two candidates with the same priority and scope remain Unknown when their scores are within the ambiguity margin; the resolver does not guess.
 
-Explicit IDE signals are intentionally narrow. A source filename such as `DebugService.php` is not by itself a Debugging signal. Current alpha.7.3 signals require debugger/test/review UI wording such as `Debugger`, `[Debug]`, `PHPUnit`, `Test Runner`, `Code Review`, or `Git Diff`. If such a strong signal is present but the matching Activity Type taxonomy does not exist, classification remains Unknown rather than silently falling back to the Project default.
+Explicit IDE signals are intentionally narrow. A source filename such as `DebugService.php` is not by itself a Debugging signal. Without plugin context, fallback signals still require debugger/test/review UI wording such as `Debugger`, `[Debug]`, `PHPUnit`, `Test Runner`, `Code Review`, or `Git Diff`. If such a strong signal is present but the matching Activity Type taxonomy does not exist, classification remains Unknown rather than silently falling back to the Project default.
+
+## PhpStorm Context Intelligence — alpha.8.0
+
+Alpha.8 adds a first-party PhpStorm Context Bridge. For fresh plugin-enriched foreground observations, the stable IDE identity comes from Project name/path rather than parsing the current file from the title. The plugin also provides current file, Git branch, Run Configuration and explicit `idle/run/debug/test` state.
+
+The old window-title parser remains a fallback. Plugin absence, staleness, malformed JSON, or multi-project ambiguity must never stop capture.
+
+`debug` and `test` plugin states are deterministic Activity Type signals with confidence `1.0`. `run` remains semantic context only; it does not bypass configured Activity Type rules/defaults. Raw Activity Sessions retain the IDE JSON so Laravel and Windows can audit/reproject from the same source metadata.

@@ -23,5 +23,6 @@ public sealed record ActivitySession(
     string SyncState = "pending",
     double? ActivityTypeConfidence = null,
     string? ActivityTypeReason = null,
-    string? ActivityTypeSource = null
+    string? ActivityTypeSource = null,
+    string? IdeContextJson = null
 );

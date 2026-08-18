@@ -203,3 +203,29 @@ Accepted item:
 ```
 
 The Agent acknowledges by `client_outbox_id` first. Entity/id matching remains as a backward-compatible fallback for older servers. Whole-batch fallback is retained only when the response proves that every sent item was accepted and there were no conflicts. Configuration mutations such as `project_rule` are prioritized ahead of ordinary Activity Session rows in the local outbox, so explicit user learning reaches the server promptly even when Activity capture has a backlog.
+
+## IDE context metadata — alpha.8.0
+
+`activity_session` push may include an optional `ide_context` object produced by the local PhpStorm Context Bridge:
+
+```json
+{
+  "protocol_version": 1,
+  "plugin_version": "0.1.0-alpha.8.0",
+  "ide_product": "PhpStorm",
+  "ide_build": "261...",
+  "process_id": 12345,
+  "project_name": "WorkTracker",
+  "project_path": "I:\\worktracker",
+  "current_file": "SyncEngine.cs",
+  "current_file_path": "I:\\worktracker\\...",
+  "git_branch": "alpha8",
+  "execution_mode": "debug",
+  "run_configuration": "WorkTracker API",
+  "run_configuration_type": "PHP",
+  "observed_at_utc": "2026-08-18T12:00:00Z",
+  "source": "phpstorm-plugin"
+}
+```
+
+This metadata is enrichment only. It does not alter the Activity timestamps, device binding, additive time semantics, or Sync version rules. Unknown keys are not accepted by the current validation contract. Source-code content, debugger values, console output and credentials are outside the protocol.

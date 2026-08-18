@@ -2,13 +2,14 @@
 
 Offline-first Windows activity/project tracker with a Laravel backend, additive concurrent time accounting, central reporting and customer billing.
 
-Current source: **0.1.0-alpha.7.3 — Activity Intelligence & Work Events**.
+Current source: **0.1.0-alpha.8.0 — Context Intelligence & Integrations**.
 
 ## Non-negotiable time rule
 Legitimate parallel activities are additive. A 20-minute phone call and 20 minutes of coding from 10:00–10:20 may both belong to the same project and equal **40m Effort / 20m Elapsed Coverage**. Sync, reporting and billing must not normalize this.
 
 ## Repository layout
 - `apps/windows-agent/WorkTracker.Agent/` — C#/.NET 10/WPF Agent, SQLite, capture, manual timers, classification and Sync.
+- `apps/phpstorm-plugin/` — PhpStorm Context Bridge plugin for project/file/run/debug/test/Git metadata.
 - `apps/api/` — complete Laravel 12 backend application for WorkTracker.
 - `docs/` — ADRs, architecture, deployment, testing and handoff.
 - `tools/` — Windows build/run and server/invariant checks.
@@ -19,7 +20,7 @@ Verified map: `docs/handoff/current-project-map.md`.
 - Foreground + idle capture, multiple simultaneous manual timers and System Tray.
 - Local projects, deterministic project rules, Unknown Inbox and explicit learning.
 - Derived Work Events aggregate noisy foreground segments; stable IDE Context patterns and independent per-Project Continuity Bridges support mutual/multi-project additive continuity without deleting raw data.
-- Project Pulse side widget shows the three most recent Projects with live credited/direct/bridge time plus Effort/Coverage/Concurrent totals.
+- Project Pulse side widget shows the four most recent/active Pulse items with live credited/direct/bridge time plus Effort/Coverage/Concurrent totals.
 - Offline-first transactional outbox and device-bound Sanctum Sync.
 - Central Effort/Coverage reporting, device health and durable conflict resolution.
 - Public-host security with Session-authenticated dashboard and scoped token-only API.
@@ -30,9 +31,10 @@ Verified map: `docs/handoff/current-project-map.md`.
 - Daily/weekly/monthly/custom reports with activity-type breakdown and visual concurrency timeline.
 - Responsive Laravel navigation/dashboard refresh and extracted WPF TodaySummary component.
 
-## Windows build
+## Windows / IDE integration build
 ```powershell
 .\tools\build-windows-agent.ps1
+.\tools\build-phpstorm-plugin.ps1
 .\tools\run-windows-agent.ps1
 ```
 Requires .NET 10 SDK on Windows. The packaging environment does not perform the final Windows build.
@@ -45,7 +47,7 @@ The backend is a complete Laravel 12 application. Run `composer install`, config
 Production web root must point to Laravel `public/`.
 
 Latest WorkTracker migration in this source:
-`2026_08_12_030000_create_worktracker_audit_logs.php`
+`2026_08_18_180000_add_ide_context_to_activity_sessions.php`
 
 ## Main web surfaces
 - `/worktracker` — dashboard

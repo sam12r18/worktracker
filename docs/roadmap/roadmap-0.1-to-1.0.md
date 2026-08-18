@@ -32,7 +32,7 @@ Activity edit/audit trail, Activity Type correction, daily/weekly/monthly UX, fi
 ## alpha.7.2 — Admin master data + Task web foundation — completed source milestone
 Project/Customer master-data UI, Project Rule management, contextual help, Task CRUD web foundation and pricing-operations polish.
 
-## alpha.7.3 — Activity Intelligence & Work Events — current
+## alpha.7.3 — Activity Intelligence & Work Events — completed source milestone
 - Raw Activity Session vs derived Work Event separation.
 - Stable IDE Context normalization to prevent one visible event per file/tab.
 - Same-Project aggregation across applications without duplicate project credit.
@@ -43,6 +43,16 @@ Project/Customer master-data UI, Project Rule management, contextual help, Task 
 - P0 Agent core completed: explicit continuity decision state, mutual/multi-project bridge projection, deterministic build self-test, live Project Pulse widget and decision logging.
 - Laravel Work Event Projection + Bridge Audit started: derived tables, explicit rebuild, Sync-triggered rebuild, Work Event API/UI and report parity are implemented.
 - Finalized invoice/Billing parity for derived continuity credits remains intentionally pending until financial audit semantics are frozen.
+
+## alpha.8.0 — Context Intelligence & Integrations — current
+- First-party PhpStorm Context Bridge using a local short-lived heartbeat file; no localhost listener.
+- Exact IDE Project name/path and current file context.
+- Git branch and active Run Configuration metadata.
+- Explicit Run/Debug/Test state; Debug/Test drive Activity Type with confidence 1.0.
+- Foreground PID + multi-project disambiguation and safe fallback to existing Rules.
+- IDE metadata persisted with raw Activity Sessions and synced to Laravel for audit/reprojection.
+- Unified alpha.8 automated regression entry point.
+- Remaining alpha.8 scope: privacy controls, richer IDE semantic modes, Rule Tester v2, Project Pulse persistence, then browser context contract.
 
 ## 0.2 — Browser/IDE enrichment
 Chrome/Edge extension contract, privacy allow/deny rules, active tab/domain metadata, PhpStorm/VS Code/Git adapters, explicit IDE run/debug/test state and background-job sources.

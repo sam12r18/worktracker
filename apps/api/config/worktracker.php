@@ -21,7 +21,7 @@ return [
 
     // Activity Intelligence defaults must stay in parity with the Windows Agent.
     'activity_intelligence' => [
-        'projection_version' => 'alpha.7.3-p1',
+        'projection_version' => 'alpha.8.0-p1',
         'merge_gap_seconds' => 15,
         'initial_anchor_seconds' => 60,
         'bridge_max_seconds' => 120,

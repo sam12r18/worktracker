@@ -32,6 +32,11 @@ public sealed class ActivityTypeInferenceService(
                 process = snapshot.ProcessName,
                 title = snapshot.WindowTitle,
                 context_key = ActivityContextNormalizer.Describe(snapshot).Key,
+                ide_project = snapshot.IdeContext?.ProjectName,
+                ide_file = snapshot.IdeContext?.CurrentFile,
+                ide_mode = snapshot.IdeContext?.Mode,
+                ide_run_configuration = snapshot.IdeContext?.RunConfiguration,
+                ide_git_branch = snapshot.IdeContext?.GitBranch,
             });
         }
 

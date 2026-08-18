@@ -5,6 +5,7 @@ using System.IO;
 using System.Windows;
 using WorkTracker.Agent.Classification;
 using WorkTracker.Agent.Diagnostics;
+using WorkTracker.Agent.Integrations.Ide;
 using WorkTracker.Agent.Services;
 using WorkTracker.Agent.Storage;
 using WorkTracker.Agent.Sync;
@@ -72,6 +73,7 @@ public partial class App : System.Windows.Application
             var activityTypeRules = new ActivityTypeRuleRepository(database);
             var classifier = new ProjectClassificationService(projects);
             var activityTypeInference = new ActivityTypeInferenceService(activityTypes, activityTypeRules, projects);
+            var ideContext = new IdeContextBridgeService();
             var corrections = new ActivityCorrectionService(repository, classifier);
             var syncSettings = new SyncSettingsStore(database);
             // Apply one-time sync protocol migrations (including checkpoint reset) before
@@ -95,6 +97,7 @@ public partial class App : System.Windows.Application
                 repository,
                 classifier,
                 activityTypeInference,
+                ideContext,
                 userId,
                 deviceId);
 
@@ -111,6 +114,7 @@ public partial class App : System.Windows.Application
                 _sync,
                 syncSettings,
                 outbox,
+                ideContext,
                 deviceId);
             _widget = new ProjectPulseWidget(repository, projects, activityTypes, manualTimer, _tracking, _sync);
 

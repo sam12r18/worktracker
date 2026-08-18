@@ -135,12 +135,15 @@ class HealthController extends Controller
             'bridge_rearm_seconds' => WorkEventProjectionService::BRIDGE_REARM_SECONDS,
         ];
         $policyMatches = $configuredPolicy === $compiledPolicy;
+        $ideContextReady = Schema::hasColumn('activity_sessions', 'ide_context');
         $checks['activity_intelligence'] = [
-            'status' => $activitySchemaReady && $policyMatches ? 'ok' : 'fail',
+            'status' => $activitySchemaReady && $policyMatches && $ideContextReady ? 'ok' : 'fail',
             ...$configuredPolicy,
             'policy_matches_compiled_projection' => $policyMatches,
+            'ide_context_protocol' => 1,
+            'ide_context_column' => $ideContextReady ? 'ok' : 'missing',
         ];
-        if (! $policyMatches) {
+        if (! $policyMatches || ! $ideContextReady) {
             $ok = false;
         }
         if (! $sanctumInstalled) {
@@ -150,7 +153,7 @@ class HealthController extends Controller
         return response()->json([
             'status' => $ok ? 'ok' : 'fail',
             'app' => 'WorkTracker',
-            'version' => '0.1.0-alpha.7.3',
+            'version' => '0.1.0-alpha.8.0',
             'environment' => app()->environment(),
             'php' => PHP_VERSION,
             'laravel' => app()->version(),

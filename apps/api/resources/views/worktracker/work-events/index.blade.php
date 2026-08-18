@@ -94,6 +94,12 @@
                                             <span class="wt-badge">{{ $segment->activitySession->activity_type_source }} {{ $segment->activitySession->activity_type_confidence !== null ? number_format((float)$segment->activitySession->activity_type_confidence,2) : '' }}</span>
                                         @endif
                                     @endif
+                                    @php($ide = $segment->activitySession?->ide_context)
+                                    @if(is_array($ide) && (!empty($ide['project_name']) || !empty($ide['execution_mode']) || !empty($ide['git_branch'])))
+                                        <span class="wt-badge" title="PhpStorm Context">
+                                            IDE: {{ $ide['project_name'] ?? '-' }} · {{ $ide['execution_mode'] ?? 'idle' }}@if(!empty($ide['git_branch'])) · {{ $ide['git_branch'] }}@endif
+                                        </span>
+                                    @endif
                                 </div>
                             @endforeach
                             @foreach($event->bridges as $bridge)

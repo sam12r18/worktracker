@@ -44,6 +44,7 @@ public sealed class LocalDatabase
         await EnsureColumnAsync(connection, "activity_sessions", "activity_type_confidence", "REAL NULL", cancellationToken);
         await EnsureColumnAsync(connection, "activity_sessions", "activity_type_source", "TEXT NULL", cancellationToken);
         await EnsureColumnAsync(connection, "activity_sessions", "activity_type_reason", "TEXT NULL", cancellationToken);
+        await EnsureColumnAsync(connection, "activity_sessions", "ide_context_json", "TEXT NULL", cancellationToken);
         await EnsureColumnAsync(connection, "activity_sessions", "is_billable", "INTEGER NULL", cancellationToken);
     }
 

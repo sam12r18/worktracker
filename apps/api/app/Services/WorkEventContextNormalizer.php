@@ -5,10 +5,20 @@ namespace App\Services;
 final class WorkEventContextNormalizer
 {
     /** @return array{kind:string,key:string,display:string,stable_pattern:?string} */
-    public function describe(?string $processName, ?string $windowTitle): array
+    public function describe(?string $processName, ?string $windowTitle, ?array $ideContext = null): array
     {
         $process = $this->normalizeProcess($processName);
         $title = trim((string) $windowTitle);
+
+        if (in_array($process, ['phpstorm64', 'phpstorm'], true) && is_array($ideContext)) {
+            $projectName = trim((string) ($ideContext['project_name'] ?? ''));
+            $projectPath = trim((string) ($ideContext['project_path'] ?? ''));
+            $workspace = $projectName !== '' ? $projectName : ($projectPath !== '' ? basename(str_replace('\\', '/', $projectPath)) : '');
+            $identity = $projectPath !== '' ? $projectPath : $workspace;
+            if ($workspace !== '' && $identity !== '') {
+                return ['kind'=>'ide','key'=>'ide:phpstorm:'.$this->keyPart($identity),'display'=>$workspace,'stable_pattern'=>$workspace];
+            }
+        }
 
         if (in_array($process, ['phpstorm64', 'phpstorm'], true)) {
             $normalized = $this->stripKnownApplicationSuffix($title, 'PhpStorm');

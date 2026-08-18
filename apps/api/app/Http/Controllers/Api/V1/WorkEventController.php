@@ -39,7 +39,7 @@ class WorkEventController extends Controller
         return response()->json([
             'date' => $date,
             'timezone' => $timezone,
-            'projection_version' => (string) config('worktracker.activity_intelligence.projection_version', 'alpha.7.3-p1'),
+            'projection_version' => (string) config('worktracker.activity_intelligence.projection_version', 'alpha.8.0-p1'),
             'summary' => [
                 'events' => $events->count(),
                 'segments' => (int) $events->sum('segment_count'),

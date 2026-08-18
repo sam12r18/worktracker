@@ -1,4 +1,6 @@
 using System.IO;
+using System.Text.Json;
+using WorkTracker.Agent.Integrations.Ide;
 using WorkTracker.Agent.Domain;
 
 namespace WorkTracker.Agent.Tracking;
@@ -21,10 +23,40 @@ public static class ActivityContextNormalizer
     private static readonly string[] Separators = [" — ", " – ", " - "];
 
     public static ActivityContextDescriptor Describe(ForegroundSnapshot snapshot)
-        => Describe(snapshot.ProcessName, snapshot.WindowTitle);
+    {
+        var ide = snapshot.IdeContext;
+        if (ide is not null && IsPhpStorm(NormalizeProcess(snapshot.ProcessName)))
+        {
+            var workspace = ide.ProjectDisplay;
+            if (!string.IsNullOrWhiteSpace(workspace) && workspace != "-")
+            {
+                var identity = !string.IsNullOrWhiteSpace(ide.ProjectPath) ? ide.ProjectPath! : workspace;
+                return new(ActivityContextKind.Ide, $"ide:phpstorm:{KeyPart(identity)}", workspace, workspace);
+            }
+        }
+
+        return Describe(snapshot.ProcessName, snapshot.WindowTitle);
+    }
 
     public static ActivityContextDescriptor Describe(ActivitySession session)
-        => Describe(session.ProcessName, session.WindowTitle);
+    {
+        if (!string.IsNullOrWhiteSpace(session.IdeContextJson))
+        {
+            try
+            {
+                var ide = JsonSerializer.Deserialize<IdeContextSnapshot>(session.IdeContextJson);
+                if (ide is not null && ide.IsSupported)
+                {
+                    return Describe(new ForegroundSnapshot(0, ide.ProcessId, session.ProcessName, session.ExecutablePath, session.WindowTitle, session.StartedAt, ide));
+                }
+            }
+            catch (JsonException)
+            {
+                // Historical/invalid enrichment must never make event aggregation fail.
+            }
+        }
+        return Describe(session.ProcessName, session.WindowTitle);
+    }
 
     public static ActivityContextDescriptor Describe(string? processName, string? windowTitle)
     {

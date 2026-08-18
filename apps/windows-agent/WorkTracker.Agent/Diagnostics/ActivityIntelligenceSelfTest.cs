@@ -1,5 +1,8 @@
+using System.IO;
 using WorkTracker.Agent.Classification;
 using WorkTracker.Agent.Domain;
+using WorkTracker.Agent.Integrations.Ide;
+using System.Text.Json;
 using WorkTracker.Agent.Services;
 using WorkTracker.Agent.Tracking;
 
@@ -27,6 +30,8 @@ public static class ActivityIntelligenceSelfTest
         TestProjectScopedRuleWinsAtEqualPriority(failures);
         TestActivityTypeAmbiguousRulesStayUnknown(failures);
         TestBrowserAssignAndLearnPattern(failures);
+        TestPhpStormPluginContextSelection(failures);
+        TestPhpStormPluginDebugClassification(failures);
         return failures;
     }
 
@@ -251,6 +256,45 @@ public static class ActivityIntelligenceSelfTest
         var pattern = ProjectClassificationService.SuggestBrowserPattern(sessions);
         Expect(failures, string.Equals(pattern, "Ketabnow", StringComparison.OrdinalIgnoreCase),
             "explicit browser Assign + Learn must derive the stable project-like title segment instead of an exact volatile tab title");
+    }
+
+
+    private static void TestPhpStormPluginContextSelection(List<string> failures)
+    {
+        var root = Path.Combine(Path.GetTempPath(), "worktracker-ide-selftest-" + Guid.NewGuid().ToString("N"));
+        var phpStormDir = Path.Combine(root, "phpstorm");
+        Directory.CreateDirectory(phpStormDir);
+        try
+        {
+            var now = DateTimeOffset.UtcNow;
+            var first = new IdeContextSnapshot(1, "0.1.0-alpha.8.0", "PhpStorm", "261", 4242, "Ketabnow", @"I:\ketabnow", "app.php", @"I:\ketabnow\app.php", "main", "idle", null, null, now, "phpstorm-plugin");
+            var second = new IdeContextSnapshot(1, "0.1.0-alpha.8.0", "PhpStorm", "261", 4242, "WorkTracker", @"I:\worktracker", "TrackingEngine.cs", @"I:\worktracker\TrackingEngine.cs", "alpha8", "debug", "WorkTracker.Agent", "PHP", now, "phpstorm-plugin");
+            File.WriteAllText(Path.Combine(phpStormDir, "context-4242-a.json"), JsonSerializer.Serialize(first));
+            File.WriteAllText(Path.Combine(phpStormDir, "context-4242-b.json"), JsonSerializer.Serialize(second));
+
+            var service = new IdeContextBridgeService(root);
+            var foreground = new ForegroundSnapshot(0, 4242, "phpstorm64", null, "WorkTracker – TrackingEngine.cs", now);
+            var enriched = service.EnrichAsync(foreground).GetAwaiter().GetResult();
+            Expect(failures, enriched.IdeContext?.ProjectName == "WorkTracker" && enriched.IdeContext.Mode == "debug",
+                "PhpStorm bridge must select the project context matching the foreground window when one IDE process hosts multiple projects");
+        }
+        finally
+        {
+            try { Directory.Delete(root, true); } catch { }
+        }
+    }
+
+    private static void TestPhpStormPluginDebugClassification(List<string> failures)
+    {
+        var now = DateTimeOffset.UtcNow;
+        var ide = new IdeContextSnapshot(1, "0.1.0-alpha.8.0", "PhpStorm", "261", 4242, "WorkTracker", @"I:\worktracker", "SyncEngine.cs", @"I:\worktracker\SyncEngine.cs", "alpha8", "debug", "WorkTracker.Agent", "PHP", now, "phpstorm-plugin");
+        var snapshot = new ForegroundSnapshot(0, 4242, "phpstorm64", null, "WorkTracker – SyncEngine.cs", now, ide);
+        var context = ActivityContextNormalizer.Describe(snapshot);
+        var result = new ActivityTypeResolver().Resolve(snapshot, "A", "development", Types(), []);
+        Expect(failures, context.Key.Contains("worktracker", StringComparison.OrdinalIgnoreCase),
+            "PhpStorm plugin project identity must stabilize the IDE ContextKey independently of the active file");
+        Expect(failures, result is not null && result.ActivityTypeId == "debugging" && result.Source == "ide_plugin" && result.Confidence >= 0.999,
+            "PhpStorm plugin Debug state must classify Debugging with deterministic confidence 1.0");
     }
 
     private static IReadOnlyList<ActivityType> Types() => new[]

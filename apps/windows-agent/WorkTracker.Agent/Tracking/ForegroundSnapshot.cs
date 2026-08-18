@@ -1,3 +1,5 @@
+using WorkTracker.Agent.Integrations.Ide;
+
 namespace WorkTracker.Agent.Tracking;
 
 public sealed record ForegroundSnapshot(
@@ -6,4 +8,5 @@ public sealed record ForegroundSnapshot(
     string? ProcessName,
     string? ExecutablePath,
     string? WindowTitle,
-    DateTimeOffset ObservedAt);
+    DateTimeOffset ObservedAt,
+    IdeContextSnapshot? IdeContext = null);

@@ -1,6 +1,6 @@
 # WorkTracker Status
 
-Current release: **0.1.0-alpha.7.3 — Activity Intelligence & Work Events**
+Current release: **0.1.0-alpha.8.0 — Context Intelligence & Integrations**
 
 ## Completed source milestones
 - alpha.1: offline foreground capture, idle handling, SQLite timeline, simultaneous manual timers, additive overlap accounting.
@@ -11,7 +11,8 @@ Current release: **0.1.0-alpha.7.3 — Activity Intelligence & Work Events**
 - alpha.6: Activity Type selection/correction in Windows, billing configuration Pull, effective-dated pricing history and invoice draft/final lifecycle.
 - alpha.7: historical Activity editor + Audit Log, daily/weekly/monthly/custom reports, visual overlap timeline, responsive dashboard redesign.
 - alpha.7.2: first-class Project/Customer admin UI, Project Rules, project Tasks, pricing override lifecycle/history visibility, Activity Type activation/order, dedicated Access Token UI, route-aware contextual Help, Agent reliability and Sync diagnostics.
-- alpha.7.3: Work Event projection, IDE context normalization, event-level correction/learning, per-project short Continuity Bridges with mutual overlap, Project Pulse widget (full + compact), Rule pattern preview, conservative explicit Debug/Test inference, and Laravel Work Event/Bridge materialization for audit/report parity.
+- alpha.7.3: Work Event projection, IDE context normalization, event-level correction/learning, per-project short Continuity Bridges with mutual overlap, Project Pulse widget (full + compact + quick call), Rule pattern preview, Activity Type Intelligence, and Laravel Work Event/Bridge materialization for audit/report parity.
+- alpha.8.0: first-party PhpStorm Context Bridge, foreground-PID/multi-project context selection, Project path/name enrichment, Git branch, Run/Debug/Test state, IDE metadata sync/audit and unified alpha.8 regression tooling.
 
 ## Important semantics
 - Effort is additive. Legitimate overlap is never capped to wall-clock coverage.
@@ -27,11 +28,11 @@ Current release: **0.1.0-alpha.7.3 — Activity Intelligence & Work Events**
 - A real Windows/.NET 10 build is still the authoritative WPF compiler gate. The alpha.7.3 source explicitly aliases WPF MessageBox to avoid the WPF/WinForms ambiguity introduced by the Tray integration.
 
 ## Next
-- Real Windows build + alpha.7.3 Activity Intelligence smoke test.
-- Validate Laravel/Windows Work Event parity on real synced data and freeze projection test vectors.
+- Build/install the PhpStorm Context Bridge and validate `idle/run/debug/test` on real projects.
+- Add privacy allow/deny controls and user-visible IDE integration health/history.
+- Extend semantic IDE modes beyond Debug/Test (review, terminal, database, build) only where reliable IDE signals exist.
+- Design the Chrome/Edge URL/domain bridge after the PhpStorm protocol is stable.
 - Keep finalized Billing on raw Activity Sessions until immutable Bridge financial snapshot semantics are implemented.
-- Browser/IDE enrichment after Project Rule behavior is validated against real foreground windows.
-- Work-report export/presets and richer Task workflows.
 - Team/organization/RBAC management remains intentionally deferred until its ownership model is specified.
 
 ## alpha.7.2 sync diagnostics hotfix
@@ -49,7 +50,7 @@ Current release: **0.1.0-alpha.7.3 — Activity Intelligence & Work Events**
 - Aggregation exposes Direct/Suspended/BridgeCandidate/Bridged/Closed decisions and logs bridge/close decisions for diagnosis.
 - Same-Project app/title changes stay one projected Work Event while raw sessions remain auditable.
 - Windows build now runs deterministic Activity Intelligence scenarios after Release compilation.
-- Project Pulse widget shows the three most recent Projects with live credited/direct/bridge counters and overall Effort/Coverage/Concurrent.
+- Project Pulse widget shows four recent/active Pulse items with live credited/direct/bridge counters and overall Effort/Coverage/Concurrent.
 
 ## alpha.7.3 Laravel Work Event projection
 - Added materialized `work_events`, `work_event_segments` and `continuity_bridges` tables.

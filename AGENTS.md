@@ -258,3 +258,13 @@ Do not:
 - At equal priority, Project-scoped Activity Type Rules outrank global Rules. Same-scope near-ties remain Unknown rather than guessing.
 - Activity Type Rule deactivation is a versioned disabled tombstone until the sync protocol gains generic deletion tombstones; do not physically delete it and strand stale rules on Agents.
 - Continuity Bridge remains independent per Project: mutual and multi-project bridges are valid and Effort may exceed Coverage substantially. Do not introduce a global anchor or normalize to wall-clock time.
+
+## PhpStorm Context Bridge invariants (alpha.8.0+)
+- The PhpStorm plugin is an enrichment producer, not an API client. It must never hold a Sanctum token.
+- The bridge uses short-lived local metadata under the current user's LocalAppData; no localhost listener/port is required.
+- Never collect source contents, debugger values, console output, environment variables, Git credentials, or WorkTracker credentials through IDE context.
+- IDE metadata must never change raw timestamps or normalize additive Effort.
+- A fresh plugin `debug`/`test` state is an explicit Activity Type signal; `run` alone is not equivalent to Development.
+- Multiple projects in one PhpStorm process must be disambiguated by foreground context. Ambiguity must fall back to existing rules, not pick a random project.
+- Missing/stale/malformed plugin context must degrade safely to window-title/rule behavior and must be logged rather than crash capture.
+- `ProjectRuleType.Path` means IDE Project path when trusted IDE context exists; executable path remains the fallback for legacy observations.

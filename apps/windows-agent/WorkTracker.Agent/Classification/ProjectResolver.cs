@@ -47,10 +47,15 @@ public sealed class ProjectResolver
     {
         return rule.Type switch
         {
-            ProjectRuleType.Path or ProjectRuleType.ExecutablePath => MatchValue(snapshot.ExecutablePath, rule),
+            ProjectRuleType.Path => MatchValue(snapshot.IdeContext?.ProjectPath ?? snapshot.ExecutablePath, rule),
+            ProjectRuleType.ExecutablePath => MatchValue(snapshot.ExecutablePath, rule),
             ProjectRuleType.WindowTitle => MatchValue(snapshot.WindowTitle, rule),
             ProjectRuleType.ProcessName => MatchValue(snapshot.ProcessName, rule),
-            ProjectRuleType.Keyword => MatchValue(snapshot.WindowTitle, rule) || MatchValue(snapshot.ExecutablePath, rule),
+            ProjectRuleType.Keyword => MatchValue(snapshot.WindowTitle, rule)
+                                      || MatchValue(snapshot.ExecutablePath, rule)
+                                      || MatchValue(snapshot.IdeContext?.ProjectName, rule)
+                                      || MatchValue(snapshot.IdeContext?.ProjectPath, rule)
+                                      || MatchValue(snapshot.IdeContext?.CurrentFilePath, rule),
             _ => false
         };
     }

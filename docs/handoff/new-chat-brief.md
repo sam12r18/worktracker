@@ -1,6 +1,6 @@
 # New Chat Brief — WorkTracker
 
-Baseline: **WorkTracker 0.1.0-alpha.7.3**.
+Baseline: **WorkTracker 0.1.0-alpha.8.0**.
 
 Before coding read, in order:
 1. `AGENTS.md`
@@ -8,7 +8,7 @@ Before coding read, in order:
 3. `docs/handoff/current-project-map.md`
 4. `docs/product/admin-project-customer-management.md`
 5. `docs/architecture/contextual-help.md`
-6. ADR 0004, 0005, 0008, 0009, 0010, 0011 and 0014.
+6. ADR 0004, 0005, 0008, 0009, 0010, 0011, 0014 and 0015.
 
 Key invariants:
 - Legitimate overlapping Activities are additive, including same user/device/project/time range.
@@ -25,4 +25,7 @@ Key invariants:
 
 Current admin surfaces include Projects, Customers, Project Rules, Activity Type Intelligence, project Tasks, Billing/rate history/overrides, API & Token, Devices, Activities, Reports, Work Events, Audit, Invoices and Conflicts.
 
-Immediate smoke test: migrate/clear cache, open `/worktracker/projects`, `/worktracker/customers`, `/worktracker/access-tokens`, build the Windows Agent, create a Device Token from the Agent UUID, then verify register + sync.
+Immediate smoke test: migrate/clear cache, build the Windows Agent, build/install the PhpStorm Context Bridge, verify `PhpStorm Context` becomes connected in the Agent Sync tab, then create a new IDE Activity and verify register + sync + `/worktracker/work-events` IDE metadata.
+
+
+Alpha.8.0 adds a first-party PhpStorm Context Bridge under `apps/phpstorm-plugin`. The plugin publishes local protocol-v1 project/file/Git/run/debug/test metadata; the WPF Agent owns classification, persistence and authenticated Sync.

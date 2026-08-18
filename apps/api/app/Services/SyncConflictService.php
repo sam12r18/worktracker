@@ -93,7 +93,7 @@ final class SyncConflictService
             $m=ActivitySession::query()->whereKey($id)->where('user_id',$userId)->first();
             return $m ? collect($m->toArray())->only([
                 'device_id','project_id','task_id','activity_type_id','is_billable','source','process_name','executable_path','window_title',
-                'classification_confidence','classification_reason','activity_type_confidence','activity_type_source','activity_type_reason','started_at','ended_at','duration_seconds',
+                'classification_confidence','classification_reason','activity_type_confidence','activity_type_source','activity_type_reason','ide_context','started_at','ended_at','duration_seconds',
                 'idle_seconds','note','is_billable','created_at_device','updated_at_device'
             ])->all() : null;
         }

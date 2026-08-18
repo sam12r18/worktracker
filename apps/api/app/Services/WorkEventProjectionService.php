@@ -7,7 +7,7 @@ use Illuminate\Support\Collection;
 
 final class WorkEventProjectionService
 {
-    public const PROJECTION_VERSION = 'alpha.7.3-p1';
+    public const PROJECTION_VERSION = 'alpha.8.0-p1';
     public const MERGE_GAP_SECONDS = 15;
     public const INITIAL_ANCHOR_SECONDS = 60;
     public const BRIDGE_MAX_SECONDS = 120;
@@ -38,6 +38,7 @@ final class WorkEventProjectionService
                 'source' => (string) $session->source,
                 'process_name' => $session->process_name ? (string) $session->process_name : null,
                 'window_title' => $session->window_title ? (string) $session->window_title : null,
+                'ide_context' => is_array($session->ide_context) ? $session->ide_context : null,
                 'started_at' => $start,
                 'ended_at' => $end,
                 'duration_seconds' => max(0, (int) floor($start->diffInSeconds($end))),
@@ -230,7 +231,7 @@ final class WorkEventProjectionService
     private function foregroundGroupKey(array $session): string
     {
         if ($session['project_id'] !== null) return 'project:'.$session['project_id'];
-        $context = $this->contexts->describe($session['process_name'], $session['window_title']);
+        $context = $this->contexts->describe($session['process_name'], $session['window_title'], $session['ide_context'] ?? null);
         return 'unknown:'.$context['key'];
     }
 

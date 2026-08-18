@@ -52,6 +52,15 @@ public sealed class ActivityTypeResolver
         var isIde = process is "phpstorm64" or "phpstorm" or "code" or "code-insiders" or "devenv";
         if (!isIde) return (false, null);
 
+        if (snapshot.IdeContext is { } ide)
+        {
+            if (ide.Mode == "debug")
+                return (true, MatchType(types, ["debug", "debugging", "دیباگ"], 1.0, "ide_plugin", "ide_plugin_debug_state"));
+
+            if (ide.Mode == "test")
+                return (true, MatchType(types, ["test", "testing", "تست"], 1.0, "ide_plugin", "ide_plugin_test_state"));
+        }
+
         var signal = $"{snapshot.WindowTitle} {snapshot.ProcessName}".ToLowerInvariant();
 
         if (ContainsAny(signal, "debugger", "[debug]", " debug: ", " - debug ", " – debug ", " دیباگر "))

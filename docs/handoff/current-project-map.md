@@ -1,6 +1,6 @@
-# Current Project Map — WorkTracker 0.1.0-alpha.7.3
+# Current Project Map — WorkTracker 0.1.0-alpha.8.0
 
-Verified against the alpha.7.3 source tree on 2026-08-16.
+Verified against the alpha.8.0 source tree on 2026-08-18.
 
 ## Repository root
 - `AGENTS.md` — mandatory invariants and development discipline.
@@ -9,6 +9,11 @@ Verified against the alpha.7.3 source tree on 2026-08-16.
 - `docs/` — ADRs, architecture, product, deployment, testing and handoff.
 - `apps/windows-agent/WorkTracker.Agent/` — WPF/.NET 10 Windows Agent.
 - `apps/api/` — Laravel WorkTracker application module/current local web backend.
+
+## PhpStorm Context Bridge
+- `apps/phpstorm-plugin/` — first-party JetBrains plugin for Project/file/Git/Run/Debug/Test metadata.
+- Local protocol: `%LOCALAPPDATA%\WorkTracker\ide\phpstorm\context-<pid>-<project-hash>.json`.
+- Build: `tools/build-phpstorm-plugin.ps1`.
 
 ## Windows Agent
 Important areas:
@@ -71,6 +76,6 @@ Admin API additionally exposes Projects, Customers, project Tasks, Devices, Acti
 - `docs/review/alpha7.3-source-documentation-audit.md` — source ↔ documentation alignment and deliberate open gaps.
 
 ## Scope boundary
-Team/organization/RBAC administration is not part of alpha.7.3. Do not bolt it onto Customer/Project ownership without a dedicated ownership/security design.
+Team/organization/RBAC administration is not part of alpha.8.0. Do not bolt it onto Customer/Project ownership without a dedicated ownership/security design.
 
-- `ProjectPulseWidget.xaml(.cs)` — compact always-on-top view of the three latest Projects with live credited/direct/bridge and global Effort/Coverage/Concurrent counters.
+- `ProjectPulseWidget.xaml(.cs)` — compact always-on-top view of four recent/active Pulse items with live credited/direct/bridge and global Effort/Coverage/Concurrent counters.
