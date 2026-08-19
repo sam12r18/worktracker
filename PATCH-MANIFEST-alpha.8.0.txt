@@ -1,0 +1,70 @@
+WorkTracker 0.1.0-alpha.8.0 — Context Intelligence & Integrations
+Patch baseline: latest alpha.7.3 source supplied in this conversation
+Generated: 2026-08-18
+
+Required after overlay:
+  1) apps/api: php artisan migrate
+  2) apps/api: php artisan optimize:clear
+  3) repo root: .\tools\build-windows-agent.ps1
+  4) repo root: .\tools\build-phpstorm-plugin.ps1
+  5) install generated PhpStorm plugin ZIP and restart PhpStorm
+
+Changed/new files:
+  30249da142d58e90  .gitignore
+  4f33aebe91ef9352  AGENTS.md
+  ac65db7768e554bf  ALPHA-8.0-CONTEXT-INTEGRATION.md
+  60d2228f9fab4299  README-COMPLETE.md
+  488383b03528de5e  README.md
+  10b2832013a46483  apps/api/app/Http/Controllers/Api/V1/SyncController.php
+  5fbe973c31d6cfcc  apps/api/app/Http/Controllers/Api/V1/WorkEventController.php
+  7369015d09aaff24  apps/api/app/Http/Controllers/HealthController.php
+  7e57855d203ac98b  apps/api/app/Models/ActivitySession.php
+  d995836a97892cd4  apps/api/app/Services/SyncConflictService.php
+  e4006e0fe275b7f8  apps/api/app/Services/WorkEventContextNormalizer.php
+  d16f22ac15f08ca1  apps/api/app/Services/WorkEventProjectionService.php
+  b5bd7d98dd72fbdf  apps/api/config/worktracker.php
+  2daa2d152995f965  apps/api/database/migrations/2026_08_18_180000_add_ide_context_to_activity_sessions.php
+  7f91ce2de7169886  apps/api/resources/views/worktracker/work-events/index.blade.php
+  d1841ba33f57c4b2  apps/api/tests/Unit/WorkEventProjectionServiceTest.php
+  a42d035e8274bfec  apps/phpstorm-plugin/README.md
+  98099ec33d26ebf0  apps/phpstorm-plugin/build.gradle.kts
+  c81485d7ef3d63a3  apps/phpstorm-plugin/gradle.properties
+  c715458d6b2e3aa2  apps/phpstorm-plugin/settings.gradle.kts
+  adefdc28e6898528  apps/phpstorm-plugin/src/main/java/ir/rayaasun/worktracker/context/WorkTrackerContextPublisherService.java
+  295be5e429bdebb4  apps/phpstorm-plugin/src/main/java/ir/rayaasun/worktracker/context/WorkTrackerExecutionListener.java
+  9d53d7345a8e4979  apps/phpstorm-plugin/src/main/java/ir/rayaasun/worktracker/context/WorkTrackerFileEditorListener.java
+  152af161647f4c32  apps/phpstorm-plugin/src/main/java/ir/rayaasun/worktracker/context/WorkTrackerProjectManagerListener.java
+  b73296a240360961  apps/phpstorm-plugin/src/main/resources/META-INF/plugin.xml
+  9dc858dbd1b05291  apps/windows-agent/WorkTracker.Agent/App.xaml.cs
+  3c516a58920997de  apps/windows-agent/WorkTracker.Agent/Classification/ActivityTypeInferenceService.cs
+  6a73563d29d2ab11  apps/windows-agent/WorkTracker.Agent/Classification/ActivityTypeResolver.cs
+  c65f1a789ff3211e  apps/windows-agent/WorkTracker.Agent/Classification/ProjectClassificationService.cs
+  700e365e08af662d  apps/windows-agent/WorkTracker.Agent/Classification/ProjectResolver.cs
+  250062a90ceab51d  apps/windows-agent/WorkTracker.Agent/Diagnostics/ActivityIntelligenceSelfTest.cs
+  b93b234f681b5cdf  apps/windows-agent/WorkTracker.Agent/Domain/ActivitySession.cs
+  38556a3172f8c85d  apps/windows-agent/WorkTracker.Agent/Infrastructure/BuildInfo.cs
+  7888ee3c57425715  apps/windows-agent/WorkTracker.Agent/Integrations/Ide/IdeContextBridgeService.cs
+  aadfeb798f170384  apps/windows-agent/WorkTracker.Agent/Integrations/Ide/IdeContextSnapshot.cs
+  f72c964f0e91f8f5  apps/windows-agent/WorkTracker.Agent/MainWindow.xaml
+  c25d90d06d202c7f  apps/windows-agent/WorkTracker.Agent/MainWindow.xaml.cs
+  fade3436d922e20b  apps/windows-agent/WorkTracker.Agent/Storage/ActivitySessionRepository.cs
+  a6935d8792d1d88c  apps/windows-agent/WorkTracker.Agent/Storage/LocalDatabase.cs
+  75c05576dea085b5  apps/windows-agent/WorkTracker.Agent/Storage/local-schema.sql
+  8f39754f57acdae6  apps/windows-agent/WorkTracker.Agent/Tracking/ActivityContextNormalizer.cs
+  f40a8165322bbc0f  apps/windows-agent/WorkTracker.Agent/Tracking/ForegroundSnapshot.cs
+  593c3b2c2be8a34f  apps/windows-agent/WorkTracker.Agent/Tracking/TrackingEngine.cs
+  a315e1bfdaf2d45b  apps/windows-agent/WorkTracker.Agent/WorkTracker.Agent.csproj
+  8d777aa97d3904c6  docs/adr/0015-phpstorm-context-bridge.md
+  f2a3c31b32f5d2ce  docs/api/sync-contract.md
+  39175c3c00a6e9a1  docs/architecture/activity-intelligence.md
+  85839460c9763506  docs/architecture/data-model.md
+  61c350ce2d7bcce1  docs/architecture/phpstorm-context-bridge.md
+  5162bcf68a3c6680  docs/handoff/current-project-map.md
+  a76cb1c20514021e  docs/handoff/new-chat-brief.md
+  e5119396572d5515  docs/handoff/release-0.1.0-alpha.8.0.md
+  5afbc624a3d0e102  docs/product/privacy-and-data-policy.md
+  d63af969262923f7  docs/roadmap/roadmap-0.1-to-1.0.md
+  e41734608d156aa9  docs/status.md
+  ec36091ea7c96b5c  docs/testing/alpha8.0-phpstorm-context-smoke-test.md
+  9dc6562a45a16732  tools/build-phpstorm-plugin.ps1
+  7928e3334ff5f5ba  tools/test-alpha8-regression.ps1
