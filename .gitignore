@@ -112,3 +112,6 @@ worktracker.db
 worktracker.db-*
 *.local.json
 *.local.config
+
+# Source/archive packages
+*.zip
