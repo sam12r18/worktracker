@@ -244,7 +244,7 @@ public final class WorkTrackerContextPublisherService implements Disposable {
     }
 
     private record ExecutionState(String mode, String configurationName, String configurationType) {
-        private static final ExecutionState IDLE = new("idle", null, null);
+        private static final ExecutionState IDLE = new ExecutionState("idle", null, null);
 
         int priority() {
             return switch (mode) {

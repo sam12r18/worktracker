@@ -2,6 +2,16 @@
 
 This patch starts alpha.8 with the first-party PhpStorm Context Bridge.
 
+## PhpStorm compatibility policy
+
+The same release ZIP is intended to support PhpStorm 2025.1 through 2026.2 (`251` through `262.*`).
+
+The release artifact is compiled against PhpStorm 2025.1 using Java 21. Building against the oldest supported platform prevents accidental compile-time use of APIs introduced only in later versions. The generated plugin descriptor declares `since-build=251` and `until-build=262.*`.
+
+Direct compile checks are also supported for 2025.2, 2025.3, 2026.1, and 2026.2. PhpStorm 2026.2 requires Java 25 only when compiling directly against that platform; the normal cross-version release build remains Java 21 bytecode and is intended to run on the newer Java 25-based IDE as well.
+
+JetBrains Plugin Verifier can be run as an optional compatibility matrix against all five supported IDE releases.
+
 ## Required install/update steps
 
 1. Laravel:
@@ -9,13 +19,15 @@ This patch starts alpha.8 with the first-party PhpStorm Context Bridge.
    - `php artisan migrate`
    - `php artisan optimize:clear`
 2. Windows Agent:
-   - from repository root run `./tools/build-windows-agent.ps1`
-3. PhpStorm plugin:
-   - run `./tools/build-phpstorm-plugin.ps1`
-   - install the generated ZIP from `apps/phpstorm-plugin/build/distributions/` via PhpStorm **Settings → Plugins → Install Plugin from Disk**
+   - from repository root run `.\tools\build-windows-agent.ps1`
+3. PhpStorm plugin release build:
+   - `.\tools\build-phpstorm-plugin.ps1 -JavaHome "C:\Program Files\Eclipse Adoptium\jdk-21.0.12+8\bin"`
+   - install the generated ZIP from `apps\phpstorm-plugin\build\distributions\` via PhpStorm **Settings -> Plugins -> Install Plugin from Disk**
    - restart PhpStorm
 4. Optional combined regression gate:
-   - `./tools/test-alpha8-regression.ps1`
+   - `.\tools\test-alpha8-regression.ps1`
+5. Optional full IDE compatibility verification:
+   - `.\tools\test-alpha8-regression.ps1 -VerifyPhpStormCompatibility`
 
 ## Context protocol v1
 
@@ -35,7 +47,3 @@ Published metadata is limited to IDE/product/build, process id, Project name/pat
 ## Migration
 
 Adds nullable JSON column `activity_sessions.ide_context`. Existing records do not require backfill.
-
-## Build note
-
-The PhpStorm plugin source is configured against PhpStorm 2026.1 and compatibility range `261` through `262.*`. The authoritative compatibility/build gate is the Gradle plugin build on the development machine.

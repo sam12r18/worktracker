@@ -1,0 +1,21 @@
+<idea-plugin>
+  <idea-version since-build="251" until-build="262.*" />
+  <description><![CDATA[Publishes local PhpStorm project, active file, execution state, run configuration, and Git branch context to the WorkTracker Windows Agent.]]></description>
+  <version>0.1.0-alpha.8.0</version>
+  <id>ir.rayaasun.worktracker.context</id>
+  <name>WorkTracker Context Bridge</name>
+  <vendor>Rayaasun</vendor>
+  <depends>com.intellij.modules.platform</depends>
+  <depends>com.jetbrains.php</depends>
+  <depends>Git4Idea</depends>
+  <applicationListeners>
+    <listener class="ir.rayaasun.worktracker.context.WorkTrackerProjectManagerListener" topic="com.intellij.openapi.project.ProjectManagerListener" />
+  </applicationListeners>
+  <projectListeners>
+    <listener class="ir.rayaasun.worktracker.context.WorkTrackerFileEditorListener" topic="com.intellij.openapi.fileEditor.FileEditorManagerListener" />
+    <listener class="ir.rayaasun.worktracker.context.WorkTrackerExecutionListener" topic="com.intellij.execution.ExecutionListener" />
+  </projectListeners>
+  <extensions defaultExtensionNs="com.intellij">
+    <projectService serviceImplementation="ir.rayaasun.worktracker.context.WorkTrackerContextPublisherService" />
+  </extensions>
+</idea-plugin>

@@ -1,8 +1,10 @@
 # Windows PowerShell 5.1 compatibility: keep this script ASCII-only.
 param(
-    [string]$PlatformVersion = '2026.1',
+    [string]$PlatformVersion = '2025.1',
     [string]$JavaHome = '',
-    [switch]$NoBootstrap
+    [string]$GradleUserHome = '',
+    [switch]$NoBootstrap,
+    [switch]$VerifyCompatibility
 )
 
 $ErrorActionPreference = 'Stop'
@@ -14,15 +16,58 @@ $gradleVersion = '9.0.0'
 $toolRoot = Join-Path $env:LOCALAPPDATA 'WorkTracker\tools'
 $gradleRoot = Join-Path $toolRoot "gradle-$gradleVersion"
 $gradleExe = Join-Path $gradleRoot 'bin\gradle.bat'
-$managedJdkRoot = Join-Path $toolRoot 'temurin-jdk-21'
-$temurinUrl = 'https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jdk/hotspot/normal/eclipse'
+
+# Keep the large IntelliJ/Gradle caches off the system drive by default.
+# PhpStorm distributions can require several GB while Gradle extracts/transforms them.
+if (-not $GradleUserHome) {
+    $GradleUserHome = Join-Path $repo '.worktracker-cache\gradle'
+}
+$GradleUserHome = [IO.Path]::GetFullPath($GradleUserHome)
+$workTrackerCacheRoot = Split-Path -Parent $GradleUserHome
+$gradleTempRoot = Join-Path $workTrackerCacheRoot 'tmp'
+New-Item -ItemType Directory -Path $GradleUserHome -Force | Out-Null
+New-Item -ItemType Directory -Path $gradleTempRoot -Force | Out-Null
+
+# Protect local build caches from accidental git add.
+$cacheGitIgnore = Join-Path $workTrackerCacheRoot '.gitignore'
+if (-not (Test-Path $cacheGitIgnore)) {
+    Set-Content -Path $cacheGitIgnore -Value "*`r`n!.gitignore`r`n" -Encoding ASCII
+}
+
+function Get-FreeSpaceGb([string]$Path) {
+    try {
+        $root = [IO.Path]::GetPathRoot([IO.Path]::GetFullPath($Path))
+        $drive = New-Object System.IO.DriveInfo($root)
+        return [Math]::Round($drive.AvailableFreeSpace / 1GB, 2)
+    }
+    catch { return -1 }
+}
+
+function Get-RequiredJavaMajor([string]$VersionText) {
+    try {
+        $v = [Version]$VersionText
+        if ($v -ge [Version]'2026.2') { return 25 }
+    }
+    catch {
+        if ($VersionText -match '^2026\.(?<minor>\d+)') {
+            if ([int]$Matches.minor -ge 2) { return 25 }
+        }
+    }
+    return 21
+}
+
+$supportedPlatforms = @('2025.1', '2025.2', '2025.3', '2026.1', '2026.2')
+if ($supportedPlatforms -notcontains $PlatformVersion) {
+    throw "Unsupported PhpStorm target '$PlatformVersion'. Supported targets: $($supportedPlatforms -join ', ')."
+}
+
+$requiredJavaMajor = Get-RequiredJavaMajor $PlatformVersion
+$managedJdkRoot = Join-Path $toolRoot "temurin-jdk-$requiredJavaMajor"
+$temurinUrl = "https://api.adoptium.net/v3/binary/latest/$requiredJavaMajor/ga/windows/x64/jdk/hotspot/normal/eclipse"
 
 function Get-JavaMajor([string]$JavaExe) {
     if (-not $JavaExe -or -not (Test-Path $JavaExe)) { return 0 }
 
-    # java -version writes its version text to stderr. With $ErrorActionPreference = Stop,
-    # Windows PowerShell 5.1 can surface that normal stderr output as NativeCommandError.
-    # Capture both streams through ProcessStartInfo instead of the PowerShell error stream.
     $psi = New-Object System.Diagnostics.ProcessStartInfo
     $psi.FileName = $JavaExe
     $psi.Arguments = '-version'
@@ -54,7 +99,6 @@ function Resolve-JavaPath([string]$Path) {
     }
 
     if (Test-Path $Path -PathType Container) {
-        # Accept either JAVA_HOME (JDK root) or a direct ...\bin path.
         $direct = Join-Path $Path 'java.exe'
         if (Test-Path $direct -PathType Leaf) { return $direct }
 
@@ -99,37 +143,28 @@ function Get-PhpStormExecutablesFromRegistry {
 function Resolve-JavaExecutable {
     $candidates = New-Object System.Collections.Generic.List[string]
 
-    if ($JavaHome) {
-        Add-JavaCandidate $candidates $JavaHome
-    }
-
-    if ($env:JAVA_HOME) {
-        Add-JavaCandidate $candidates $env:JAVA_HOME
-    }
+    if ($JavaHome) { Add-JavaCandidate $candidates $JavaHome }
+    if ($env:JAVA_HOME) { Add-JavaCandidate $candidates $env:JAVA_HOME }
 
     $command = Get-Command java -ErrorAction SilentlyContinue
     if ($command) { Add-JavaCandidate $candidates $command.Source }
 
-    # Reuse a JDK previously bootstrapped by WorkTracker.
     if (Test-Path $managedJdkRoot) {
         Get-ChildItem -Path $managedJdkRoot -Recurse -File -Filter 'java.exe' -ErrorAction SilentlyContinue |
             Where-Object { $_.FullName -match '\\bin\\java\.exe$' } |
             ForEach-Object { Add-JavaCandidate $candidates $_.FullName }
     }
 
-    # If PhpStorm is currently running, this is the most reliable way to find a custom install.
     try {
         Get-CimInstance Win32_Process -Filter "Name='phpstorm64.exe'" -ErrorAction Stop |
             ForEach-Object { Add-JbrFromPhpStormExe $candidates $_.ExecutablePath }
     }
     catch { }
 
-    # Registry App Paths, when present.
     foreach ($phpStormExe in Get-PhpStormExecutablesFromRegistry) {
         Add-JbrFromPhpStormExe $candidates $phpStormExe
     }
 
-    # Common standalone and Toolbox locations.
     $roots = @(
         (Join-Path $env:LOCALAPPDATA 'Programs'),
         (Join-Path $env:LOCALAPPDATA 'JetBrains\Toolbox\apps\PhpStorm'),
@@ -138,8 +173,6 @@ function Resolve-JavaExecutable {
         (Join-Path ${env:ProgramFiles(x86)} 'JetBrains')
     ) | Where-Object { $_ -and (Test-Path $_) }
 
-    # Common standalone JDK locations. This also finds Eclipse Adoptium installations
-    # such as C:\Program Files\Eclipse Adoptium\jdk-21.x.x+N\bin\java.exe.
     $jdkRoots = @(
         (Join-Path $env:ProgramFiles 'Eclipse Adoptium'),
         (Join-Path $env:ProgramFiles 'Java'),
@@ -164,33 +197,33 @@ function Resolve-JavaExecutable {
     foreach ($candidate in @($candidates | Select-Object -Unique)) {
         try {
             $major = Get-JavaMajor $candidate
-            if ($major -ge 21) {
+            if ($major -ge $requiredJavaMajor) {
                 Write-Host "==> Using Java candidate: $candidate" -ForegroundColor DarkGray
                 return $candidate
+            }
+            if ($major -gt 0) {
+                Write-Host ("==> Skipping Java {0} candidate; PhpStorm {1} requires Java {2}: {3}" -f $major, $PlatformVersion, $requiredJavaMajor, $candidate) -ForegroundColor DarkYellow
             }
         }
         catch { }
     }
 
     if ($NoBootstrap) {
-        throw 'Java 21+ was not found and -NoBootstrap disables automatic JDK download.'
+        throw "Java $requiredJavaMajor+ was not found and -NoBootstrap disables automatic JDK download."
     }
 
-    return Install-ManagedJdk21
+    return Install-ManagedJdk
 }
 
-function Install-ManagedJdk21 {
+function Install-ManagedJdk {
     New-Item -ItemType Directory -Path $toolRoot -Force | Out-Null
-    $zip = Join-Path $toolRoot 'temurin-jdk-21-windows-x64.zip'
+    $zip = Join-Path $toolRoot "temurin-jdk-$requiredJavaMajor-windows-x64.zip"
 
-    Write-Host '==> Java 21+ was not found in PATH, JAVA_HOME, PhpStorm, or Toolbox.' -ForegroundColor Yellow
-    Write-Host '==> Downloading a private Eclipse Temurin JDK 21 for WorkTracker...' -ForegroundColor Cyan
+    Write-Host "==> Java $requiredJavaMajor+ was not found for PhpStorm $PlatformVersion." -ForegroundColor Yellow
+    Write-Host "==> Downloading a private Eclipse Temurin JDK $requiredJavaMajor for WorkTracker..." -ForegroundColor Cyan
     Write-Host "==> Source: $temurinUrl" -ForegroundColor DarkGray
 
-    try {
-        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
-    }
-    catch { }
+    try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch { }
 
     if (Test-Path $zip) { Remove-Item $zip -Force }
     Invoke-WebRequest -Uri $temurinUrl -OutFile $zip -UseBasicParsing
@@ -205,13 +238,11 @@ function Install-ManagedJdk21 {
         Sort-Object FullName |
         Select-Object -First 1
 
-    if (-not $java) {
-        throw "JDK bootstrap completed but java.exe was not found under $managedJdkRoot."
-    }
+    if (-not $java) { throw "JDK bootstrap completed but java.exe was not found under $managedJdkRoot." }
 
     $major = Get-JavaMajor $java.FullName
-    if ($major -lt 21) {
-        throw "JDK bootstrap returned Java $major; Java 21+ is required."
+    if ($major -lt $requiredJavaMajor) {
+        throw "JDK bootstrap returned Java $major; Java $requiredJavaMajor+ is required for PhpStorm $PlatformVersion."
     }
 
     Write-Host "==> Managed JDK ready: $($java.FullName)" -ForegroundColor Green
@@ -244,18 +275,58 @@ function Resolve-GradleExecutable {
 
 $java = Resolve-JavaExecutable
 $javaMajor = Get-JavaMajor $java
-if ($javaMajor -lt 21) { throw "Java $javaMajor was found; this plugin requires Java 21+." }
+if ($javaMajor -lt $requiredJavaMajor) {
+    throw "Java $javaMajor was found; PhpStorm $PlatformVersion requires Java $requiredJavaMajor+."
+}
 $env:JAVA_HOME = Split-Path -Parent (Split-Path -Parent $java)
 $gradle = Resolve-GradleExecutable
 
+$oldGradleUserHome = $env:GRADLE_USER_HOME
+$oldTemp = $env:TEMP
+$oldTmp = $env:TMP
+$env:GRADLE_USER_HOME = $GradleUserHome
+$env:TEMP = $gradleTempRoot
+$env:TMP = $gradleTempRoot
+$freeSpaceGb = Get-FreeSpaceGb $GradleUserHome
+
 Write-Host "==> JAVA_HOME: $env:JAVA_HOME"
-Write-Host "==> Java: $java (major $javaMajor)"
+Write-Host "==> Java: $java (major $javaMajor; required $requiredJavaMajor)"
 Write-Host "==> Gradle: $gradle"
-Write-Host "==> PhpStorm target: $PlatformVersion"
+Write-Host "==> GRADLE_USER_HOME: $env:GRADLE_USER_HOME"
+Write-Host "==> Gradle TEMP: $env:TEMP"
+if ($freeSpaceGb -ge 0) {
+    Write-Host "==> Cache drive free space: $freeSpaceGb GB"
+    if ($freeSpaceGb -lt 8) {
+        Write-Warning "Less than 8 GB is free on the Gradle cache drive. PhpStorm SDK extraction may fail."
+    }
+}
+Write-Host "==> PhpStorm compile target: $PlatformVersion"
+Write-Host "==> Declared compatibility: PhpStorm 2025.1 (251) through 2026.2 (262.*)"
+
+
+# Fast Java source sanity check before Gradle downloads/configures the IDE SDK.
+# Target-typed `new(...)` is C# syntax and is never valid Java.
+$javaSourceRoot = Join-Path $repo 'apps\phpstorm-plugin\src\main\java'
+if (Test-Path $javaSourceRoot) {
+    $invalidTargetTypedNew = Get-ChildItem $javaSourceRoot -Recurse -Filter '*.java' -File |
+        Select-String -Pattern '\bnew\s*\(' -AllMatches
+    if ($invalidTargetTypedNew) {
+        $first = $invalidTargetTypedNew | Select-Object -First 1
+        throw ("Invalid Java syntax detected before Gradle build: {0}:{1}. Use 'new Type(...)', not target-typed 'new(...)'." -f $first.Path, $first.LineNumber)
+    }
+    Write-Host '==> Java source preflight: OK' -ForegroundColor Green
+}
 Push-Location $pluginRoot
 try {
-    & $gradle clean buildPlugin verifyPluginProjectConfiguration "-PplatformVersion=$PlatformVersion"
+    & $gradle clean buildPlugin verifyPluginProjectConfiguration "-PplatformVersion=$PlatformVersion" "-PpluginSinceBuild=251" "-PpluginUntilBuild=262.*"
     if ($LASTEXITCODE -ne 0) { throw "Gradle build failed with exit code $LASTEXITCODE." }
+
+    if ($VerifyCompatibility) {
+        Write-Host "==> Verify binary compatibility: PhpStorm 2025.1 -> 2026.2" -ForegroundColor Cyan
+        Write-Host "==> This optional step downloads multiple PhpStorm distributions and can take a long time." -ForegroundColor DarkGray
+        & $gradle verifyPlugin "-PplatformVersion=2025.1" "-PpluginSinceBuild=251" "-PpluginUntilBuild=262.*"
+        if ($LASTEXITCODE -ne 0) { throw "Plugin compatibility verification failed with exit code $LASTEXITCODE." }
+    }
 
     $distribution = Get-ChildItem -Path (Join-Path $pluginRoot 'build\distributions') -Filter '*.zip' -File |
         Sort-Object LastWriteTime -Descending | Select-Object -First 1
@@ -264,4 +335,7 @@ try {
 }
 finally {
     Pop-Location
+    $env:GRADLE_USER_HOME = $oldGradleUserHome
+    $env:TEMP = $oldTemp
+    $env:TMP = $oldTmp
 }
