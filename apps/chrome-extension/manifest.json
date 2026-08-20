@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "WorkTracker Browser Context",
+  "version": "0.1.0",
+  "description": "Provides privacy-filtered active Chrome tab context to the WorkTracker Windows Agent.",
+  "minimum_chrome_version": "120",
+  "permissions": ["tabs", "nativeMessaging", "storage"],
+  "background": {
+    "service_worker": "src/service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "WorkTracker",
+    "default_popup": "popup/popup.html"
+  }
+}

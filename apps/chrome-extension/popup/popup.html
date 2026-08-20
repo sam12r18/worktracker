@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>WorkTracker</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main>
+    <header><div><strong>WorkTracker</strong><small>Browser Context</small></div><span id="stateDot" class="dot"></span></header>
+    <label class="switchRow">
+      <span><b>ارسال Context مرورگر</b><small>فقط تب فعال؛ بدون Cookie، فرم یا متن صفحه</small></span>
+      <input id="trackingEnabled" type="checkbox">
+    </label>
+    <section class="card">
+      <div class="row"><span>وضعیت</span><b id="status">—</b></div>
+      <div class="row"><span>دامنه</span><b id="host" class="ltr">—</b></div>
+      <div class="row"><span>مسیر</span><b id="path" class="ltr">—</b></div>
+    </section>
+    <label><span>سطح حریم خصوصی</span><select id="privacyMode"><option value="domain_path">دامنه + مسیر</option><option value="domain_only">فقط دامنه</option></select></label>
+    <button id="publishNow" type="button">ارسال مجدد Context</button>
+    <p id="error" class="error"></p>
+    <p class="foot">Query string، Fragment و اطلاعات ورود URL هرگز ارسال نمی‌شوند.</p>
+  </main>
+  <script src="popup.js"></script>
+</body>
+</html>
