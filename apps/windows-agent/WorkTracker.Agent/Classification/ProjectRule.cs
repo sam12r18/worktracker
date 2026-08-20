@@ -16,5 +16,8 @@ public enum ProjectRuleType
     WindowTitle,
     ProcessName,
     ExecutablePath,
+    BrowserHost,
+    BrowserPath,
+    BrowserTitle,
     Keyword
 }

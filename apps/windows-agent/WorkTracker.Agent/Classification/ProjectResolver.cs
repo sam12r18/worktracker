@@ -24,18 +24,13 @@ public sealed class ProjectResolver
         }
 
         if (candidates.Count == 0) return null;
-        var ranked = candidates
-            .OrderByDescending(x => x.Value.HighestPriority)
-            .ThenByDescending(x => x.Value.Score)
-            .ToList();
+        var ranked = candidates.OrderByDescending(x => x.Value.HighestPriority).ThenByDescending(x => x.Value.Score).ToList();
         var winner = ranked[0];
         if (winner.Value.Score < MinimumScore) return null;
-
         if (ranked.Count > 1)
         {
             var runnerUp = ranked[1];
-            if (runnerUp.Value.HighestPriority == winner.Value.HighestPriority &&
-                winner.Value.Score - runnerUp.Value.Score < MinimumWinningMargin)
+            if (runnerUp.Value.HighestPriority == winner.Value.HighestPriority && winner.Value.Score - runnerUp.Value.Score < MinimumWinningMargin)
                 return null;
         }
 
@@ -51,11 +46,17 @@ public sealed class ProjectResolver
             ProjectRuleType.ExecutablePath => MatchValue(snapshot.ExecutablePath, rule),
             ProjectRuleType.WindowTitle => MatchValue(snapshot.WindowTitle, rule),
             ProjectRuleType.ProcessName => MatchValue(snapshot.ProcessName, rule),
+            ProjectRuleType.BrowserHost => MatchValue(snapshot.BrowserContext?.Host, rule),
+            ProjectRuleType.BrowserPath => MatchValue(snapshot.BrowserContext?.Path, rule),
+            ProjectRuleType.BrowserTitle => MatchValue(snapshot.BrowserContext?.Title, rule),
             ProjectRuleType.Keyword => MatchValue(snapshot.WindowTitle, rule)
                                       || MatchValue(snapshot.ExecutablePath, rule)
                                       || MatchValue(snapshot.IdeContext?.ProjectName, rule)
                                       || MatchValue(snapshot.IdeContext?.ProjectPath, rule)
-                                      || MatchValue(snapshot.IdeContext?.CurrentFilePath, rule),
+                                      || MatchValue(snapshot.IdeContext?.CurrentFilePath, rule)
+                                      || MatchValue(snapshot.BrowserContext?.Host, rule)
+                                      || MatchValue(snapshot.BrowserContext?.Path, rule)
+                                      || MatchValue(snapshot.BrowserContext?.Title, rule),
             _ => false
         };
     }
@@ -63,7 +64,6 @@ public sealed class ProjectResolver
     private static bool MatchValue(string? value, ProjectRule rule)
     {
         if (string.IsNullOrWhiteSpace(value) || string.IsNullOrWhiteSpace(rule.Pattern)) return false;
-
         return (rule.Operator ?? "contains").Trim().ToLowerInvariant() switch
         {
             "equals" => string.Equals(value, rule.Pattern, StringComparison.OrdinalIgnoreCase),
@@ -76,18 +76,9 @@ public sealed class ProjectResolver
 
     private static bool SafeRegexIsMatch(string value, string pattern)
     {
-        try
-        {
-            return Regex.IsMatch(value, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(150));
-        }
-        catch (ArgumentException)
-        {
-            return false;
-        }
-        catch (RegexMatchTimeoutException)
-        {
-            return false;
-        }
+        try { return Regex.IsMatch(value, pattern, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant, TimeSpan.FromMilliseconds(150)); }
+        catch (ArgumentException) { return false; }
+        catch (RegexMatchTimeoutException) { return false; }
     }
 
     private sealed class Candidate

@@ -24,5 +24,6 @@ public sealed record ActivitySession(
     double? ActivityTypeConfidence = null,
     string? ActivityTypeReason = null,
     string? ActivityTypeSource = null,
-    string? IdeContextJson = null
+    string? IdeContextJson = null,
+    string? BrowserContextJson = null
 );

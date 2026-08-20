@@ -1,4 +1,5 @@
 using WorkTracker.Agent.Integrations.Ide;
+using WorkTracker.Agent.Integrations.Browser;
 
 namespace WorkTracker.Agent.Tracking;
 
@@ -9,4 +10,5 @@ public sealed record ForegroundSnapshot(
     string? ExecutablePath,
     string? WindowTitle,
     DateTimeOffset ObservedAt,
-    IdeContextSnapshot? IdeContext = null);
+    IdeContextSnapshot? IdeContext = null,
+    BrowserContextSnapshot? BrowserContext = null);

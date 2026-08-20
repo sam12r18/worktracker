@@ -3,6 +3,7 @@ using System.Text.Json;
 using WorkTracker.Agent.Classification;
 using WorkTracker.Agent.Domain;
 using WorkTracker.Agent.Integrations.Ide;
+using WorkTracker.Agent.Integrations.Browser;
 using WorkTracker.Agent.Storage;
 
 namespace WorkTracker.Agent.Tracking;
@@ -15,6 +16,7 @@ public sealed class TrackingEngine : IAsyncDisposable
     private readonly ProjectClassificationService _classification;
     private readonly ActivityTypeInferenceService _activityTypeInference;
     private readonly IdeContextBridgeService _ideContextBridge;
+    private readonly BrowserContextBridgeService _browserContextBridge;
     private readonly string _userId;
     private readonly string _deviceId;
     private readonly TimeSpan _pollInterval = TimeSpan.FromSeconds(2);
@@ -26,8 +28,8 @@ public sealed class TrackingEngine : IAsyncDisposable
     private bool _paused;
     private LiveActivitySnapshot? _liveActivity;
 
-    public TrackingEngine(IForegroundWindowObserver foreground, IIdleTimeProvider idle, ActivitySessionRepository repository, ProjectClassificationService classification, ActivityTypeInferenceService activityTypeInference, IdeContextBridgeService ideContextBridge, string userId, string deviceId)
-    { _foreground=foreground; _idle=idle; _repository=repository; _classification=classification; _activityTypeInference=activityTypeInference; _ideContextBridge=ideContextBridge; _userId=userId; _deviceId=deviceId; }
+    public TrackingEngine(IForegroundWindowObserver foreground, IIdleTimeProvider idle, ActivitySessionRepository repository, ProjectClassificationService classification, ActivityTypeInferenceService activityTypeInference, IdeContextBridgeService ideContextBridge, BrowserContextBridgeService browserContextBridge, string userId, string deviceId)
+    { _foreground=foreground; _idle=idle; _repository=repository; _classification=classification; _activityTypeInference=activityTypeInference; _ideContextBridge=ideContextBridge; _browserContextBridge=browserContextBridge; _userId=userId; _deviceId=deviceId; }
 
     public TrackingState State { get; private set; } = TrackingState.Paused;
     public event EventHandler? StateChanged;
@@ -48,7 +50,8 @@ public sealed class TrackingEngine : IAsyncDisposable
             $"live:{_deviceId}", _userId, _deviceId, live.ProjectId, null, ActivitySource.AutoForeground,
             live.Snapshot.ProcessName, live.Snapshot.ExecutablePath, live.Snapshot.WindowTitle,
             live.ClassificationConfidence, live.ClassificationReason, live.StartedAt, now, duration, 0, null,
-            live.ActivityTypeId, null, 1, "live", live.ActivityTypeConfidence, live.ActivityTypeReason, live.ActivityTypeSource, SerializeIdeContext(live.Snapshot));
+            live.ActivityTypeId, null, 1, "live", live.ActivityTypeConfidence, live.ActivityTypeReason, live.ActivityTypeSource,
+            SerializeIdeContext(live.Snapshot), SerializeBrowserContext(live.Snapshot));
     }
 
     public void Start(){ if(_loop is not null)return; _cts=new CancellationTokenSource(); _paused=false; State=TrackingState.Tracking; RaiseState(); _loop=RunAsync(_cts.Token); }
@@ -67,6 +70,7 @@ public sealed class TrackingEngine : IAsyncDisposable
             var snapshot=_foreground.Capture();
             if(snapshot is null || string.Equals(snapshot.ProcessName, Environment.ProcessPath is null?null:Path.GetFileNameWithoutExtension(Environment.ProcessPath), StringComparison.OrdinalIgnoreCase)){await FlushCurrentAsync(now,ct);continue;}
             snapshot = await _ideContextBridge.EnrichAsync(snapshot, ct);
+            snapshot = await _browserContextBridge.EnrichAsync(snapshot, ct);
             if(_current is null){await SetCurrentAsync(snapshot,now,ct);continue;}
             if(!SameContext(_current,snapshot)){await FlushCurrentAsync(now,ct);await SetCurrentAsync(snapshot,now,ct);}
             else
@@ -117,12 +121,15 @@ public sealed class TrackingEngine : IAsyncDisposable
         LiveActivityChanged?.Invoke(this,null);
         if(duration<2)return;
         var session=new ActivitySession(Guid.NewGuid().ToString(),_userId,_deviceId,live?.ProjectId,null,ActivitySource.AutoForeground,
-            snapshot.ProcessName,snapshot.ExecutablePath,snapshot.WindowTitle,live?.ClassificationConfidence,live?.ClassificationReason,start,end,duration,0,null,live?.ActivityTypeId,null,1,"pending",live?.ActivityTypeConfidence,live?.ActivityTypeReason,live?.ActivityTypeSource,SerializeIdeContext(snapshot));
+            snapshot.ProcessName,snapshot.ExecutablePath,snapshot.WindowTitle,live?.ClassificationConfidence,live?.ClassificationReason,start,end,duration,0,null,live?.ActivityTypeId,null,1,"pending",live?.ActivityTypeConfidence,live?.ActivityTypeReason,live?.ActivityTypeSource,SerializeIdeContext(snapshot),SerializeBrowserContext(snapshot));
         await _repository.AddAsync(session,ct); SessionSaved?.Invoke(this,session);
     }
 
     private static string? SerializeIdeContext(ForegroundSnapshot snapshot)
         => snapshot.IdeContext is null ? null : JsonSerializer.Serialize(snapshot.IdeContext);
+
+    private static string? SerializeBrowserContext(ForegroundSnapshot snapshot)
+        => snapshot.BrowserContext is null ? null : JsonSerializer.Serialize(snapshot.BrowserContext);
 
     private static bool SameContext(ForegroundSnapshot a, ForegroundSnapshot b)
     {
@@ -130,12 +137,19 @@ public sealed class TrackingEngine : IAsyncDisposable
             !string.Equals(a.ExecutablePath, b.ExecutablePath, StringComparison.OrdinalIgnoreCase))
             return false;
 
+        if ((a.BrowserContext is null) != (b.BrowserContext is null)) return false;
+        if (a.BrowserContext is { } ab && b.BrowserContext is { } bb)
+        {
+            return string.Equals(ab.Browser, bb.Browser, StringComparison.OrdinalIgnoreCase)
+                   && string.Equals(ab.Host, bb.Host, StringComparison.OrdinalIgnoreCase)
+                   && string.Equals(ab.Path, bb.Path, StringComparison.OrdinalIgnoreCase);
+        }
+
         if (a.IdeContext is { } ai && b.IdeContext is { } bi)
         {
             var aProject = !string.IsNullOrWhiteSpace(ai.ProjectPath) ? ai.ProjectPath : ai.ProjectName;
             var bProject = !string.IsNullOrWhiteSpace(bi.ProjectPath) ? bi.ProjectPath : bi.ProjectName;
-            if (!string.IsNullOrWhiteSpace(aProject) &&
-                string.Equals(aProject, bProject, StringComparison.OrdinalIgnoreCase))
+            if (!string.IsNullOrWhiteSpace(aProject) && string.Equals(aProject, bProject, StringComparison.OrdinalIgnoreCase))
             {
                 return string.Equals(ai.Mode, bi.Mode, StringComparison.OrdinalIgnoreCase) &&
                        string.Equals(ai.RunConfiguration ?? string.Empty, bi.RunConfiguration ?? string.Empty, StringComparison.OrdinalIgnoreCase);

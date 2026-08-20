@@ -6,6 +6,7 @@ using System.Windows;
 using WorkTracker.Agent.Classification;
 using WorkTracker.Agent.Diagnostics;
 using WorkTracker.Agent.Integrations.Ide;
+using WorkTracker.Agent.Integrations.Browser;
 using WorkTracker.Agent.Services;
 using WorkTracker.Agent.Storage;
 using WorkTracker.Agent.Sync;
@@ -74,10 +75,9 @@ public partial class App : System.Windows.Application
             var classifier = new ProjectClassificationService(projects);
             var activityTypeInference = new ActivityTypeInferenceService(activityTypes, activityTypeRules, projects);
             var ideContext = new IdeContextBridgeService();
+            var browserContext = new BrowserContextBridgeService();
             var corrections = new ActivityCorrectionService(repository, classifier);
             var syncSettings = new SyncSettingsStore(database);
-            // Apply one-time sync protocol migrations (including checkpoint reset) before
-            // the background loop can issue its first request.
             _ = await syncSettings.LoadAsync();
             var outbox = new SyncOutboxRepository(database);
             var applier = new RemoteChangeApplier(database);
@@ -98,6 +98,7 @@ public partial class App : System.Windows.Application
                 classifier,
                 activityTypeInference,
                 ideContext,
+                browserContext,
                 userId,
                 deviceId);
 
@@ -151,45 +152,21 @@ public partial class App : System.Windows.Application
 
     private void ShowWindow()
     {
-        if (_window is null)
-        {
-            return;
-        }
-
+        if (_window is null) return;
         _window.Show();
-        if (_window.WindowState == WindowState.Minimized)
-        {
-            _window.WindowState = WindowState.Normal;
-        }
-
+        if (_window.WindowState == WindowState.Minimized) _window.WindowState = WindowState.Normal;
         _window.Activate();
     }
 
-    private void ShowWidget()
-    {
-        _widget?.ShowAndActivate();
-    }
+    private void ShowWidget() => _widget?.ShowAndActivate();
 
     private async Task ExitAsync()
     {
         await AgentLog.InfoAsync("app", "WorkTracker Agent exit requested");
-        if (_window is not null)
-        {
-            await _window.PrepareForExitAsync();
-        }
-
+        if (_window is not null) await _window.PrepareForExitAsync();
         _widget?.CloseForExit();
-
-        if (_tracking is not null)
-        {
-            await _tracking.DisposeAsync();
-        }
-
-        if (_sync is not null)
-        {
-            await _sync.DisposeAsync();
-        }
-
+        if (_tracking is not null) await _tracking.DisposeAsync();
+        if (_sync is not null) await _sync.DisposeAsync();
         _http?.Dispose();
         _tray?.Dispose();
         Shutdown();
@@ -199,21 +176,14 @@ public partial class App : System.Windows.Application
     {
         if (_singleInstanceMutex is not null)
         {
-            try
-            {
-                _singleInstanceMutex.ReleaseMutex();
-            }
-            catch (ApplicationException)
-            {
-                // The mutex can already be released during an abnormal startup path.
-            }
+            try { _singleInstanceMutex.ReleaseMutex(); }
+            catch (ApplicationException) { }
             finally
             {
                 _singleInstanceMutex.Dispose();
                 _singleInstanceMutex = null;
             }
         }
-
         base.OnExit(e);
     }
 }

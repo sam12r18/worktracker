@@ -14,11 +14,11 @@ public sealed class ActivitySessionRepository(LocalDatabase database)
         cmd.Transaction = (SqliteTransaction)transaction;
         cmd.CommandText = """
             INSERT INTO activity_sessions (
-                id,user_id,device_id,project_id,task_id,activity_type_id,activity_type_confidence,activity_type_source,activity_type_reason,ide_context_json,is_billable,source,process_name,executable_path,window_title,
+                id,user_id,device_id,project_id,task_id,activity_type_id,activity_type_confidence,activity_type_source,activity_type_reason,ide_context_json,browser_context_json,is_billable,source,process_name,executable_path,window_title,
                 classification_confidence,classification_reason,started_at,ended_at,duration_seconds,idle_seconds,
                 note,version,sync_state,created_at_device,updated_at_device
             ) VALUES (
-                $id,$user_id,$device_id,$project_id,$task_id,$activity_type_id,$activity_type_confidence,$activity_type_source,$activity_type_reason,$ide_context_json,$is_billable,$source,$process_name,$executable_path,$window_title,
+                $id,$user_id,$device_id,$project_id,$task_id,$activity_type_id,$activity_type_confidence,$activity_type_source,$activity_type_reason,$ide_context_json,$browser_context_json,$is_billable,$source,$process_name,$executable_path,$window_title,
                 $confidence,$reason,$started_at,$ended_at,$duration,$idle,$note,$version,$sync_state,$created,$updated
             );
             """;
@@ -180,6 +180,7 @@ public sealed class ActivitySessionRepository(LocalDatabase database)
             ["activity_type_source"] = session.ActivityTypeSource,
             ["activity_type_reason"] = session.ActivityTypeReason,
             ["ide_context"] = string.IsNullOrWhiteSpace(session.IdeContextJson) ? null : System.Text.Json.JsonSerializer.Deserialize<object>(session.IdeContextJson),
+            ["browser_context"] = string.IsNullOrWhiteSpace(session.BrowserContextJson) ? null : System.Text.Json.JsonSerializer.Deserialize<object>(session.BrowserContextJson),
             ["is_billable"] = session.IsBillable,
             ["source"] = session.Source.ToStorageValue(),
             ["process_name"] = session.ProcessName,
@@ -211,6 +212,7 @@ public sealed class ActivitySessionRepository(LocalDatabase database)
         cmd.Parameters.AddWithValue("$activity_type_source", (object?)s.ActivityTypeSource ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$activity_type_reason", (object?)s.ActivityTypeReason ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$ide_context_json", (object?)s.IdeContextJson ?? DBNull.Value);
+        cmd.Parameters.AddWithValue("$browser_context_json", (object?)s.BrowserContextJson ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$is_billable", s.IsBillable.HasValue ? (object)(s.IsBillable.Value ? 1 : 0) : DBNull.Value);
         cmd.Parameters.AddWithValue("$source", s.Source.ToStorageValue());
         cmd.Parameters.AddWithValue("$process_name", (object?)s.ProcessName ?? DBNull.Value);
@@ -236,7 +238,7 @@ public sealed class ActivitySessionRepository(LocalDatabase database)
         NullableString(r,"process_name"), NullableString(r,"executable_path"), NullableString(r,"window_title"), NullableDouble(r,"classification_confidence"),
         NullableString(r,"classification_reason"), DateTimeOffset.Parse(r.GetString(r.GetOrdinal("started_at"))), DateTimeOffset.Parse(r.GetString(r.GetOrdinal("ended_at"))),
         r.GetInt32(r.GetOrdinal("duration_seconds")), r.GetInt32(r.GetOrdinal("idle_seconds")), NullableString(r,"note"), NullableString(r,"activity_type_id"), NullableBool(r,"is_billable"), r.GetInt32(r.GetOrdinal("version")), r.GetString(r.GetOrdinal("sync_state")),
-        NullableDouble(r,"activity_type_confidence"), NullableString(r,"activity_type_reason"), NullableString(r,"activity_type_source"), NullableString(r,"ide_context_json"));
+        NullableDouble(r,"activity_type_confidence"), NullableString(r,"activity_type_reason"), NullableString(r,"activity_type_source"), NullableString(r,"ide_context_json"), NullableString(r,"browser_context_json"));
 
     private static string? NullableString(SqliteDataReader r, string name) { var i=r.GetOrdinal(name); return r.IsDBNull(i)?null:r.GetString(i); }
     private static bool? NullableBool(SqliteDataReader r, string name) { var i=r.GetOrdinal(name); return r.IsDBNull(i)?null:r.GetInt32(i)==1; }

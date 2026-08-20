@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS activity_sessions (
     activity_type_source TEXT NULL,
     activity_type_reason TEXT NULL,
     ide_context_json TEXT NULL,
+    browser_context_json TEXT NULL,
     is_billable INTEGER NULL,
     source TEXT NOT NULL,
     process_name TEXT NULL,
@@ -97,7 +98,6 @@ CREATE TABLE IF NOT EXISTS sync_resolution_acks (
     created_at TEXT NOT NULL
 );
 
-
 CREATE TABLE IF NOT EXISTS activity_types (
     id TEXT PRIMARY KEY,
     code TEXT NOT NULL,
@@ -111,7 +111,6 @@ CREATE TABLE IF NOT EXISTS activity_types (
     updated_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_activity_types_active ON activity_types(is_active, sort_order, name);
-
 
 CREATE TABLE IF NOT EXISTS activity_type_rules (
     id TEXT PRIMARY KEY,
