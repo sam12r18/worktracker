@@ -19,14 +19,55 @@ $temurinUrl = 'https://api.adoptium.net/v3/binary/latest/21/ga/windows/x64/jdk/h
 
 function Get-JavaMajor([string]$JavaExe) {
     if (-not $JavaExe -or -not (Test-Path $JavaExe)) { return 0 }
-    $versionText = (& $JavaExe -version 2>&1 | Out-String)
+
+    # java -version writes its version text to stderr. With $ErrorActionPreference = Stop,
+    # Windows PowerShell 5.1 can surface that normal stderr output as NativeCommandError.
+    # Capture both streams through ProcessStartInfo instead of the PowerShell error stream.
+    $psi = New-Object System.Diagnostics.ProcessStartInfo
+    $psi.FileName = $JavaExe
+    $psi.Arguments = '-version'
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.RedirectStandardError = $true
+    $psi.CreateNoWindow = $true
+
+    $process = New-Object System.Diagnostics.Process
+    $process.StartInfo = $psi
+    if (-not $process.Start()) { return 0 }
+    $stdout = $process.StandardOutput.ReadToEnd()
+    $stderr = $process.StandardError.ReadToEnd()
+    $process.WaitForExit()
+    $versionText = ($stdout + "`n" + $stderr)
+    $process.Dispose()
+
     if ($versionText -match 'version\s+"(?<major>\d+)') { return [int]$Matches.major }
     if ($versionText -match 'openjdk\s+(?<major>\d+)(?:\.|\s)') { return [int]$Matches.major }
     return 0
 }
 
+function Resolve-JavaPath([string]$Path) {
+    if (-not $Path) { return $null }
+    $Path = $Path.Trim().Trim('"')
+
+    if ((Test-Path $Path -PathType Leaf) -and ([IO.Path]::GetFileName($Path) -ieq 'java.exe')) {
+        return $Path
+    }
+
+    if (Test-Path $Path -PathType Container) {
+        # Accept either JAVA_HOME (JDK root) or a direct ...\bin path.
+        $direct = Join-Path $Path 'java.exe'
+        if (Test-Path $direct -PathType Leaf) { return $direct }
+
+        $underBin = Join-Path $Path 'bin\java.exe'
+        if (Test-Path $underBin -PathType Leaf) { return $underBin }
+    }
+
+    return $null
+}
+
 function Add-JavaCandidate([System.Collections.Generic.List[string]]$List, [string]$Path) {
-    if ($Path -and (Test-Path $Path)) { $List.Add($Path) }
+    $resolved = Resolve-JavaPath $Path
+    if ($resolved) { $List.Add($resolved) }
 }
 
 function Add-JbrFromPhpStormExe([System.Collections.Generic.List[string]]$List, [string]$PhpStormExe) {
@@ -59,11 +100,11 @@ function Resolve-JavaExecutable {
     $candidates = New-Object System.Collections.Generic.List[string]
 
     if ($JavaHome) {
-        Add-JavaCandidate $candidates (Join-Path $JavaHome 'bin\java.exe')
+        Add-JavaCandidate $candidates $JavaHome
     }
 
     if ($env:JAVA_HOME) {
-        Add-JavaCandidate $candidates (Join-Path $env:JAVA_HOME 'bin\java.exe')
+        Add-JavaCandidate $candidates $env:JAVA_HOME
     }
 
     $command = Get-Command java -ErrorAction SilentlyContinue
@@ -96,6 +137,22 @@ function Resolve-JavaExecutable {
         (Join-Path $env:ProgramFiles 'JetBrains'),
         (Join-Path ${env:ProgramFiles(x86)} 'JetBrains')
     ) | Where-Object { $_ -and (Test-Path $_) }
+
+    # Common standalone JDK locations. This also finds Eclipse Adoptium installations
+    # such as C:\Program Files\Eclipse Adoptium\jdk-21.x.x+N\bin\java.exe.
+    $jdkRoots = @(
+        (Join-Path $env:ProgramFiles 'Eclipse Adoptium'),
+        (Join-Path $env:ProgramFiles 'Java'),
+        (Join-Path $env:ProgramFiles 'Microsoft'),
+        (Join-Path $env:LOCALAPPDATA 'Programs\Eclipse Adoptium')
+    ) | Where-Object { $_ -and (Test-Path $_) }
+
+    foreach ($jdkRoot in $jdkRoots) {
+        Get-ChildItem -Path $jdkRoot -Recurse -File -Filter 'java.exe' -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match '\\bin\\java\.exe$' } |
+            Sort-Object LastWriteTime -Descending |
+            ForEach-Object { Add-JavaCandidate $candidates $_.FullName }
+    }
 
     foreach ($root in $roots) {
         Get-ChildItem -Path $root -Recurse -File -Filter 'java.exe' -ErrorAction SilentlyContinue |

@@ -1,15 +1,114 @@
-**/bin/
-**/obj/
-**/.vs/
-**/.idea/
-.env
-.env.*
-!.env.example
-vendor/
-node_modules/
+﻿# ==============================
+# Environment / Secrets
+# ==============================
+**/.env
+**/.env.*
+!**/.env.example
+!**/.env.testing.example
+
+*.pem
+*.key
+*.pfx
+*.p12
+*.cer
+*.crt
+*.snk
+
+# ==============================
+# Databases / Local state
+# ==============================
+*.sqlite
+*.sqlite3
 *.db
 *.db-shm
 *.db-wal
+
+# ==============================
+# Logs
+# ==============================
+*.log
+logs/
+**/logs/
+**/storage/logs/*
+!**/storage/logs/.gitignore
+**/.gradle
+**/.intellijPlatform
+# ==============================
+# Laravel / PHP
+# ==============================
+**/vendor/
+**/bootstrap/cache/*.php
+**/storage/framework/cache/*
+**/storage/framework/sessions/*
+**/storage/framework/views/*
+**/storage/app/private/*
+
+.phpunit.result.cache
+.phpunit.cache/
+.php-cs-fixer.cache
+
+# ==============================
+# Node / Frontend
+# ==============================
+**/node_modules/
+**/npm-debug.log*
+**/yarn-debug.log*
+**/yarn-error.log*
+**/pnpm-debug.log*
+**/.npm/
+**/.yarn/cache/
+**/.vite/
+
+# ==============================
+# .NET / WPF
+# ==============================
+**/bin/
+**/obj/
+**/Debug/
+**/Release/
+**/x64/
+**/x86/
+
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# ==============================
+# Visual Studio / JetBrains / VS Code
+# ==============================
+.vs/
+**/.vs/
+.idea/
+**/.idea/
+
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.example.json
+
+# ==============================
+# OS generated
+# ==============================
 .DS_Store
-**/.gradle/
-apps/phpstorm-plugin/build/
+Thumbs.db
+desktop.ini
+
+# ==============================
+# Temporary / backup
+# ==============================
+*.tmp
+*.temp
+*.bak
+*.old
+*.orig
+*.swp
+*.swo
+*~
+
+# ==============================
+# Local WorkTracker artifacts
+# ==============================
+worktracker.db
+worktracker.db-*
+*.local.json
+*.local.config
