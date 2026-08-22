@@ -11,6 +11,8 @@ use Illuminate\Validation\Rule;
 
 class ProjectRuleManagementController extends Controller
 {
+    private const BROWSER_RULE_TYPES = ['BrowserHost', 'BrowserPath', 'BrowserTitle'];
+
     public function store(Request $request, Project $project): RedirectResponse
     {
         $this->authorizeProject($request, $project);
@@ -28,6 +30,15 @@ class ProjectRuleManagementController extends Controller
         $this->authorizeRule($request, $project, $rule);
         $data = $this->validateRule($request);
         $data['is_enabled'] = (bool) ($data['is_enabled'] ?? false);
+
+        // The legacy project page did not originally render Browser* options. If an
+        // existing Browser Rule is submitted from an older/stale UI, preserve its
+        // type instead of silently converting it to ProcessName/WindowTitle.
+        if (in_array((string) $rule->rule_type, self::BROWSER_RULE_TYPES, true)
+            && ! in_array((string) $data['rule_type'], self::BROWSER_RULE_TYPES, true)) {
+            $data['rule_type'] = $rule->rule_type;
+        }
+
         $rule->fill($data);
         if ($rule->isDirty()) {
             $rule->version = ((int) $rule->version) + 1;
