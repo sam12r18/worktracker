@@ -6,6 +6,7 @@ using System.Windows;
 using WorkTracker.Agent.Classification;
 using WorkTracker.Agent.Diagnostics;
 using WorkTracker.Agent.Integrations.Browser;
+using WorkTracker.Agent.Integrations.Context;
 using WorkTracker.Agent.Integrations.Ide;
 using WorkTracker.Agent.Services;
 using WorkTracker.Agent.Storage;
@@ -76,6 +77,11 @@ public partial class App : System.Windows.Application
             var activityTypeInference = new ActivityTypeInferenceService(activityTypes, activityTypeRules, projects);
             var ideContext = new IdeContextBridgeService();
             var browserContext = new BrowserContextBridgeService();
+            var contextHub = new ContextHubService(new IContextProvider[]
+            {
+                ideContext,
+                browserContext,
+            });
             var corrections = new ActivityCorrectionService(repository, classifier);
             var syncSettings = new SyncSettingsStore(database);
             // Apply one-time sync protocol migrations (including checkpoint reset) before
@@ -99,8 +105,7 @@ public partial class App : System.Windows.Application
                 repository,
                 classifier,
                 activityTypeInference,
-                ideContext,
-                browserContext,
+                contextHub,
                 userId,
                 deviceId);
 
@@ -133,6 +138,7 @@ public partial class App : System.Windows.Application
             _tracking.SessionSaved += async (_, _) =>
                 _tray.SetState(_tracking.State, await repository.CountPendingSyncAsync());
 
+            await AgentLog.InfoAsync("context.hub", "context providers registered", new { providers = contextHub.ProviderIds });
             _tracking.Start();
             _sync.Start();
             await AgentLog.InfoAsync("app", "WorkTracker Agent started", new { device_id = deviceId, database = database.DatabasePath });

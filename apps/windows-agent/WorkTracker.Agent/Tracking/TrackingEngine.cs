@@ -2,8 +2,7 @@ using System.IO;
 using System.Text.Json;
 using WorkTracker.Agent.Classification;
 using WorkTracker.Agent.Domain;
-using WorkTracker.Agent.Integrations.Ide;
-using WorkTracker.Agent.Integrations.Browser;
+using WorkTracker.Agent.Integrations.Context;
 using WorkTracker.Agent.Storage;
 
 namespace WorkTracker.Agent.Tracking;
@@ -15,8 +14,7 @@ public sealed class TrackingEngine : IAsyncDisposable
     private readonly ActivitySessionRepository _repository;
     private readonly ProjectClassificationService _classification;
     private readonly ActivityTypeInferenceService _activityTypeInference;
-    private readonly IdeContextBridgeService _ideContextBridge;
-    private readonly BrowserContextBridgeService _browserContextBridge;
+    private readonly ContextHubService _contextHub;
     private readonly string _userId;
     private readonly string _deviceId;
     private readonly TimeSpan _pollInterval = TimeSpan.FromSeconds(2);
@@ -28,8 +26,8 @@ public sealed class TrackingEngine : IAsyncDisposable
     private bool _paused;
     private LiveActivitySnapshot? _liveActivity;
 
-    public TrackingEngine(IForegroundWindowObserver foreground, IIdleTimeProvider idle, ActivitySessionRepository repository, ProjectClassificationService classification, ActivityTypeInferenceService activityTypeInference, IdeContextBridgeService ideContextBridge, BrowserContextBridgeService browserContextBridge, string userId, string deviceId)
-    { _foreground=foreground; _idle=idle; _repository=repository; _classification=classification; _activityTypeInference=activityTypeInference; _ideContextBridge=ideContextBridge; _browserContextBridge=browserContextBridge; _userId=userId; _deviceId=deviceId; }
+    public TrackingEngine(IForegroundWindowObserver foreground, IIdleTimeProvider idle, ActivitySessionRepository repository, ProjectClassificationService classification, ActivityTypeInferenceService activityTypeInference, ContextHubService contextHub, string userId, string deviceId)
+    { _foreground=foreground; _idle=idle; _repository=repository; _classification=classification; _activityTypeInference=activityTypeInference; _contextHub=contextHub; _userId=userId; _deviceId=deviceId; }
 
     public TrackingState State { get; private set; } = TrackingState.Paused;
     public event EventHandler? StateChanged;
@@ -69,8 +67,7 @@ public sealed class TrackingEngine : IAsyncDisposable
             if(State!=TrackingState.Tracking){State=TrackingState.Tracking;RaiseState();}
             var snapshot=_foreground.Capture();
             if(snapshot is null || string.Equals(snapshot.ProcessName, Environment.ProcessPath is null?null:Path.GetFileNameWithoutExtension(Environment.ProcessPath), StringComparison.OrdinalIgnoreCase)){await FlushCurrentAsync(now,ct);continue;}
-            snapshot = await _ideContextBridge.EnrichAsync(snapshot, ct);
-            snapshot = await _browserContextBridge.EnrichAsync(snapshot, ct);
+            snapshot = await _contextHub.EnrichAsync(snapshot, ct);
             if(_current is null){await SetCurrentAsync(snapshot,now,ct);continue;}
             if(!SameContext(_current,snapshot)){await FlushCurrentAsync(now,ct);await SetCurrentAsync(snapshot,now,ct);}
             else

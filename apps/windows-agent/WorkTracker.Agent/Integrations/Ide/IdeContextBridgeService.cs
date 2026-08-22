@@ -1,11 +1,12 @@
 using System.IO;
 using System.Text.Json;
 using WorkTracker.Agent.Diagnostics;
+using WorkTracker.Agent.Integrations.Context;
 using WorkTracker.Agent.Tracking;
 
 namespace WorkTracker.Agent.Integrations.Ide;
 
-public sealed class IdeContextBridgeService
+public sealed class IdeContextBridgeService : IContextProvider
 {
     private static readonly TimeSpan FreshnessWindow = TimeSpan.FromSeconds(12);
     private static readonly TimeSpan HardStaleWindow = TimeSpan.FromMinutes(2);
@@ -28,6 +29,7 @@ public sealed class IdeContextBridgeService
         _phpStormDirectory = Path.Combine(root, "phpstorm");
     }
 
+    public string ProviderId => "phpstorm";
     public string PhpStormDirectory => _phpStormDirectory;
 
     public async Task<ForegroundSnapshot> EnrichAsync(ForegroundSnapshot snapshot, CancellationToken ct = default)

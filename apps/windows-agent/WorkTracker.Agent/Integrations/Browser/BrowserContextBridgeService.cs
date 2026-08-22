@@ -1,11 +1,12 @@
 using System.IO;
 using System.Text.Json;
 using WorkTracker.Agent.Diagnostics;
+using WorkTracker.Agent.Integrations.Context;
 using WorkTracker.Agent.Tracking;
 
 namespace WorkTracker.Agent.Integrations.Browser;
 
-public sealed class BrowserContextBridgeService
+public sealed class BrowserContextBridgeService : IContextProvider
 {
     private static readonly TimeSpan FreshnessWindow = TimeSpan.FromSeconds(30);
     private static readonly TimeSpan HardStaleWindow = TimeSpan.FromHours(12);
@@ -28,6 +29,7 @@ public sealed class BrowserContextBridgeService
         _contextPath = Path.Combine(root, "context.json");
     }
 
+    public string ProviderId => "chrome";
     public string ContextPath => _contextPath;
 
     public async Task<ForegroundSnapshot> EnrichAsync(ForegroundSnapshot snapshot, CancellationToken ct = default)
@@ -53,15 +55,11 @@ public sealed class BrowserContextBridgeService
         }
 
         now ??= DateTimeOffset.UtcNow;
-        var context = _lastContext ?? TryReadStatusContext();
+        var context = _lastContext;
         if (context is null)
-            return BrowserContextBridgeStatus.Disconnected("فایل Context مرورگر قابل خواندن نیست.");
+            return BrowserContextBridgeStatus.Disconnected("Context از افزونه Chrome دریافت شده اما هنوز روی پنجره فعال اعمال نشده است.");
 
-        _lastContext = context;
         var age = Math.Max(0, (int)Math.Floor((now.Value - context.ObservedAtUtc).TotalSeconds));
-        if (age > HardStaleWindow.TotalSeconds)
-            return BrowserContextBridgeStatus.Disconnected("Context مرورگر بیش از حد قدیمی است.");
-
         var stale = age > FreshnessWindow.TotalSeconds;
         return new BrowserContextBridgeStatus(
             true,
@@ -74,31 +72,6 @@ public sealed class BrowserContextBridgeService
             stale
                 ? "Context قدیمی است؛ فقط در صورت تطابق عنوان تب با پنجره فعال استفاده می‌شود."
                 : "Context زنده از افزونه Chrome دریافت می‌شود.");
-    }
-
-    private BrowserContextSnapshot? TryReadStatusContext()
-    {
-        try
-        {
-            var json = File.ReadAllText(_contextPath);
-            var context = JsonSerializer.Deserialize<BrowserContextSnapshot>(json, _json);
-            if (context is null || !context.IsSupported || context.Incognito || !context.Focused ||
-                !string.Equals(context.Browser, "chrome", StringComparison.OrdinalIgnoreCase))
-                return null;
-            return context;
-        }
-        catch (IOException)
-        {
-            return null;
-        }
-        catch (JsonException)
-        {
-            return null;
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return null;
-        }
     }
 
     private async Task<BrowserContextSnapshot?> TryReadAsync(ForegroundSnapshot foreground, CancellationToken ct)
