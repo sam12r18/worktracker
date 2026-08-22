@@ -111,13 +111,20 @@ class ProjectManagementController extends Controller
 
         $recentRuleSamples = ActivitySession::query()
             ->where('user_id', $userId)
-            ->whereNotNull('window_title')
-            ->where('window_title', '!=', '')
+            ->where(function ($query): void {
+                $query->where(function ($title): void {
+                    $title->whereNotNull('window_title')->where('window_title', '!=', '');
+                })->orWhereNotNull('browser_context');
+            })
             ->where('started_at', '>=', now()->subDays(7))
             ->orderByDesc('started_at')
             ->limit(300)
-            ->get(['window_title', 'process_name', 'executable_path', 'project_id'])
-            ->unique(fn ($row) => ($row->process_name ?? '') . '|' . ($row->executable_path ?? '') . '|' . $row->window_title . '|' . ($row->project_id ?? ''))
+            ->get(['window_title', 'process_name', 'executable_path', 'project_id', 'browser_context'])
+            ->unique(function ($row): string {
+                $browserHost = (string) data_get($row->browser_context, 'host', '');
+                $browserPath = (string) data_get($row->browser_context, 'path', '');
+                return ($row->process_name ?? '') . '|' . ($row->executable_path ?? '') . '|' . ($row->window_title ?? '') . '|' . $browserHost . '|' . $browserPath . '|' . ($row->project_id ?? '');
+            })
             ->take(100)
             ->values();
 
@@ -128,6 +135,9 @@ class ProjectManagementController extends Controller
             'process' => $row->process_name,
             'path' => $row->executable_path,
             'project_id' => $row->project_id,
+            'browser_host' => data_get($row->browser_context, 'host'),
+            'browser_path' => data_get($row->browser_context, 'path'),
+            'browser_title' => data_get($row->browser_context, 'title'),
         ])->values()->all();
 
         return view('worktracker.projects.show', [
