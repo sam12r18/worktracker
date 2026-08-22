@@ -2,13 +2,13 @@
 
 use App\Http\Controllers\Api\V1\ActivitySessionController;
 use App\Http\Controllers\Api\V1\ActivityTypeRuleController;
+use App\Http\Controllers\Api\V1\BrowserContextSyncController;
 use App\Http\Controllers\Api\V1\CustomerController;
 use App\Http\Controllers\Api\V1\DeviceController;
 use App\Http\Controllers\Api\V1\OperationsController;
 use App\Http\Controllers\Api\V1\ProjectController;
 use App\Http\Controllers\Api\V1\ReportController;
 use App\Http\Controllers\Api\V1\SyncConflictController;
-use App\Http\Controllers\Api\V1\SyncController;
 use App\Http\Controllers\Api\V1\TaskController;
 use App\Http\Controllers\Api\V1\WorkEventController;
 use App\Http\Middleware\RequireWorkTrackerHttps;
@@ -19,7 +19,7 @@ Route::prefix('v1')->middleware(['auth:sanctum', RequireWorkTrackerHttps::class]
     // Device bootstrap and sync. Device tokens cannot read reports or management APIs.
     Route::post('devices', [DeviceController::class, 'store'])
         ->middleware([RequireWorkTrackerTokenAbility::class . ':device:register,admin:write', 'throttle:10,1']);
-    Route::post('sync', SyncController::class)
+    Route::post('sync', BrowserContextSyncController::class)
         ->middleware([RequireWorkTrackerTokenAbility::class . ':device:sync,admin:write', 'throttle:120,1']);
 
     // Administrative read API.

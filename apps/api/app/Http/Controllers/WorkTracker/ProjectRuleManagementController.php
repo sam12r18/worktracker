@@ -48,7 +48,7 @@ class ProjectRuleManagementController extends Controller
     private function validateRule(Request $request): array
     {
         return $request->validate([
-            'rule_type' => ['required', Rule::in(['Path', 'WindowTitle', 'ProcessName', 'ExecutablePath', 'Keyword'])],
+            'rule_type' => ['required', Rule::in(['Path', 'WindowTitle', 'ProcessName', 'ExecutablePath', 'BrowserHost', 'BrowserPath', 'BrowserTitle', 'Keyword'])],
             'operator' => ['required', Rule::in(['contains', 'equals', 'starts_with', 'ends_with', 'regex'])],
             'pattern' => ['required', 'string', 'max:1000'],
             'weight' => ['required', 'integer', 'min:1', 'max:200'],

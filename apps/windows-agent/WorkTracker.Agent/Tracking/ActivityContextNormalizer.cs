@@ -1,6 +1,7 @@
 using System.IO;
 using System.Text.Json;
 using WorkTracker.Agent.Integrations.Ide;
+using WorkTracker.Agent.Integrations.Browser;
 using WorkTracker.Agent.Domain;
 
 namespace WorkTracker.Agent.Tracking;
@@ -24,8 +25,9 @@ public static class ActivityContextNormalizer
 
     public static ActivityContextDescriptor Describe(ForegroundSnapshot snapshot)
     {
+        var process = NormalizeProcess(snapshot.ProcessName);
         var ide = snapshot.IdeContext;
-        if (ide is not null && IsPhpStorm(NormalizeProcess(snapshot.ProcessName)))
+        if (ide is not null && IsPhpStorm(process))
         {
             var workspace = ide.ProjectDisplay;
             if (!string.IsNullOrWhiteSpace(workspace) && workspace != "-")
@@ -33,6 +35,14 @@ public static class ActivityContextNormalizer
                 var identity = !string.IsNullOrWhiteSpace(ide.ProjectPath) ? ide.ProjectPath! : workspace;
                 return new(ActivityContextKind.Ide, $"ide:phpstorm:{KeyPart(identity)}", workspace, workspace);
             }
+        }
+
+        if (snapshot.BrowserContext is { } browser && IsBrowser(process))
+        {
+            var host = string.IsNullOrWhiteSpace(browser.Host) ? "unknown" : browser.Host!;
+            var path = string.IsNullOrWhiteSpace(browser.Path) ? "/" : browser.Path!;
+            var display = !string.IsNullOrWhiteSpace(browser.Title) ? browser.Title! : host;
+            return new(ActivityContextKind.Browser, $"browser:{process}:{KeyPart(host)}:{KeyPart(path)}", display, null);
         }
 
         return Describe(snapshot.ProcessName, snapshot.WindowTitle);
@@ -55,6 +65,23 @@ public static class ActivityContextNormalizer
                 // Historical/invalid enrichment must never make event aggregation fail.
             }
         }
+
+        if (!string.IsNullOrWhiteSpace(session.BrowserContextJson))
+        {
+            try
+            {
+                var browser = JsonSerializer.Deserialize<BrowserContextSnapshot>(session.BrowserContextJson);
+                if (browser is not null && browser.IsSupported)
+                {
+                    return Describe(new ForegroundSnapshot(0, 0, session.ProcessName, session.ExecutablePath, session.WindowTitle, session.StartedAt, null, browser));
+                }
+            }
+            catch (JsonException)
+            {
+                // Historical/invalid browser enrichment must never make event aggregation fail.
+            }
+        }
+
         return Describe(session.ProcessName, session.WindowTitle);
     }
 
