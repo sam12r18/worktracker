@@ -55,11 +55,15 @@ public sealed class BrowserContextBridgeService : IContextProvider
         }
 
         now ??= DateTimeOffset.UtcNow;
-        var context = _lastContext;
+        var context = _lastContext ?? TryReadStatusContext();
         if (context is null)
-            return BrowserContextBridgeStatus.Disconnected("Context از افزونه Chrome دریافت شده اما هنوز روی پنجره فعال اعمال نشده است.");
+            return BrowserContextBridgeStatus.Disconnected("فایل Context مرورگر قابل خواندن نیست.");
 
+        _lastContext = context;
         var age = Math.Max(0, (int)Math.Floor((now.Value - context.ObservedAtUtc).TotalSeconds));
+        if (age > HardStaleWindow.TotalSeconds)
+            return BrowserContextBridgeStatus.Disconnected("Context مرورگر بیش از حد قدیمی است.");
+
         var stale = age > FreshnessWindow.TotalSeconds;
         return new BrowserContextBridgeStatus(
             true,
@@ -72,6 +76,31 @@ public sealed class BrowserContextBridgeService : IContextProvider
             stale
                 ? "Context قدیمی است؛ فقط در صورت تطابق عنوان تب با پنجره فعال استفاده می‌شود."
                 : "Context زنده از افزونه Chrome دریافت می‌شود.");
+    }
+
+    private BrowserContextSnapshot? TryReadStatusContext()
+    {
+        try
+        {
+            var json = File.ReadAllText(_contextPath);
+            var context = JsonSerializer.Deserialize<BrowserContextSnapshot>(json, _json);
+            if (context is null || !context.IsSupported || context.Incognito || !context.Focused ||
+                !string.Equals(context.Browser, "chrome", StringComparison.OrdinalIgnoreCase))
+                return null;
+            return context;
+        }
+        catch (IOException)
+        {
+            return null;
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return null;
+        }
     }
 
     private async Task<BrowserContextSnapshot?> TryReadAsync(ForegroundSnapshot foreground, CancellationToken ct)
