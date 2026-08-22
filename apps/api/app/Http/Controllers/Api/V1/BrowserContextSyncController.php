@@ -78,7 +78,8 @@ class BrowserContextSyncController extends SyncController
                         continue;
                     }
 
-                    if ($session->browser_context === null || ! $this->contextsEqual($session->browser_context, $incoming['context'])) {
+                    $existingContext = is_array($session->browser_context) ? $session->browser_context : null;
+                    if (! $this->contextsEqual($existingContext, $incoming['context'])) {
                         $session->forceFill(['browser_context' => $incoming['context']])->saveQuietly();
                     }
                 }
@@ -123,7 +124,7 @@ class BrowserContextSyncController extends SyncController
     /**
      * @return array{
      *   0:array,
-     *   1:array<string,array{context:array<string,mixed>,version:int}>,
+     *   1:array<string,array{context:array<string,mixed>|null,version:int}>,
      *   2:array<string,array{rule_type:string,version:int}>
      * }
      */
@@ -151,18 +152,16 @@ class BrowserContextSyncController extends SyncController
 
             if ($entity === 'activity_session' && array_key_exists('browser_context', $change['payload'])) {
                 $rawContext = $change['payload']['browser_context'];
-                if ($rawContext !== null) {
-                    if (! is_array($rawContext)) {
-                        throw ValidationException::withMessages([
-                            "changes.$index.payload.browser_context" => 'Browser context must be an object.',
-                        ]);
-                    }
-
-                    $browserContexts[$id] = [
-                        'context' => $this->validateBrowserContext($rawContext, $index),
-                        'version' => $version,
-                    ];
+                if ($rawContext !== null && ! is_array($rawContext)) {
+                    throw ValidationException::withMessages([
+                        "changes.$index.payload.browser_context" => 'Browser context must be an object or null.',
+                    ]);
                 }
+
+                $browserContexts[$id] = [
+                    'context' => $rawContext === null ? null : $this->validateBrowserContext($rawContext, $index),
+                    'version' => $version,
+                ];
 
                 unset($changes[$index]['payload']['browser_context']);
             }
@@ -188,10 +187,10 @@ class BrowserContextSyncController extends SyncController
 
     /**
      * Same-version retries must be idempotent. Browser metadata may be filled on
-     * a legacy row where it is still NULL, but it must never silently rewrite a
-     * different Context or Browser Rule without a version increment.
+     * a legacy row where it is still NULL, but it must never silently rewrite or
+     * clear a different Context or Browser Rule without a version increment.
      *
-     * @param array<string,array{context:array<string,mixed>,version:int}> $browserContexts
+     * @param array<string,array{context:array<string,mixed>|null,version:int}> $browserContexts
      * @param array<string,array{rule_type:string,version:int}> $browserRuleTypes
      */
     private function assertReplayConsistency(Request $request, array $browserContexts, array $browserRuleTypes): void
@@ -209,11 +208,20 @@ class BrowserContextSyncController extends SyncController
 
             foreach ($browserContexts as $id => $incoming) {
                 $existing = $sessions->get($id);
-                if (! $existing || (int) $existing->version !== $incoming['version'] || $existing->browser_context === null) {
+                if (! $existing || (int) $existing->version !== $incoming['version']) {
                     continue;
                 }
 
-                if (! $this->contextsEqual($existing->browser_context, $incoming['context'])) {
+                $existingContext = is_array($existing->browser_context) ? $existing->browser_context : null;
+
+                // Alpha 8.1 may enrich an already-accepted legacy Activity whose browser_context
+                // is still NULL. Any other same-version mutation, including clearing a non-null
+                // Context, is rejected and must use the normal version/conflict path.
+                if ($existingContext === null && $incoming['context'] !== null) {
+                    continue;
+                }
+
+                if (! $this->contextsEqual($existingContext, $incoming['context'])) {
                     throw ValidationException::withMessages([
                         'changes' => "Browser context replay changed without a version increment for activity $id.",
                     ]);
@@ -327,9 +335,13 @@ class BrowserContextSyncController extends SyncController
         return $validated;
     }
 
-    /** @param array<string,mixed> $left @param array<string,mixed> $right */
-    private function contextsEqual(array $left, array $right): bool
+    /** @param array<string,mixed>|null $left @param array<string,mixed>|null $right */
+    private function contextsEqual(?array $left, ?array $right): bool
     {
+        if ($left === null || $right === null) {
+            return $left === $right;
+        }
+
         ksort($left);
         ksort($right);
         return json_encode($left, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
