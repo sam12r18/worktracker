@@ -8,6 +8,8 @@ use App\Services\SyncConflictService;
 use App\Services\WorkEventMaterializer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Validation\ValidationException;
 
@@ -18,6 +20,12 @@ use Illuminate\Validation\ValidationException;
  * Activity persistence and Work Event projection. This adapter validates the
  * browser extension payload, removes Browser-only fields before delegating to
  * the stable sync pipeline, and persists them only for accepted entities.
+ *
+ * The adapter wraps the stable pipeline in an outer transaction. Laravel's
+ * nested transaction handling keeps the legacy SyncController transaction and
+ * the Browser Context/Browser Rule restoration in one atomic commit. This
+ * prevents a partially accepted Browser Rule from being left behind as the
+ * temporary Keyword compatibility type if post-processing fails.
  */
 class BrowserContextSyncController extends SyncController
 {
@@ -29,70 +37,87 @@ class BrowserContextSyncController extends SyncController
         $this->assertReplayConsistency($request, $browserContexts, $browserRuleTypes);
         $request->merge(['changes' => $changes]);
 
-        $response = parent::__invoke($request, $conflictService, $workEvents);
-        $body = $response->getData(true);
-        $accepted = is_array($body['accepted'] ?? null) ? $body['accepted'] : [];
+        try {
+            /** @var JsonResponse $response */
+            $response = DB::transaction(function () use ($request, $conflictService, $workEvents, $browserContexts, $browserRuleTypes): JsonResponse {
+                $response = parent::__invoke($request, $conflictService, $workEvents);
+                $body = $response->getData(true);
+                $accepted = is_array($body['accepted'] ?? null) ? $body['accepted'] : [];
 
-        $acceptedActivities = [];
-        $acceptedRules = [];
-        foreach ($accepted as $row) {
-            if (! is_array($row) || empty($row['id']) || empty($row['entity'])) {
-                continue;
-            }
+                $acceptedActivities = [];
+                $acceptedRules = [];
+                foreach ($accepted as $row) {
+                    if (! is_array($row) || empty($row['id']) || empty($row['entity'])) {
+                        continue;
+                    }
 
-            $version = (int) ($row['version'] ?? 0);
-            if ($row['entity'] === 'activity_session') {
-                $acceptedActivities[(string) $row['id']] = $version;
-            } elseif ($row['entity'] === 'project_rule') {
-                $acceptedRules[(string) $row['id']] = $version;
-            }
+                    $version = (int) ($row['version'] ?? 0);
+                    if ($row['entity'] === 'activity_session') {
+                        $acceptedActivities[(string) $row['id']] = $version;
+                    } elseif ($row['entity'] === 'project_rule') {
+                        $acceptedRules[(string) $row['id']] = $version;
+                    }
+                }
+
+                $userId = $request->user()->getKey();
+                $deviceId = (string) $request->input('device_id');
+
+                foreach ($browserContexts as $id => $incoming) {
+                    if (! isset($acceptedActivities[$id]) || $acceptedActivities[$id] !== $incoming['version']) {
+                        continue;
+                    }
+
+                    $session = ActivitySession::query()
+                        ->whereKey($id)
+                        ->where('user_id', $userId)
+                        ->where('device_id', $deviceId)
+                        ->where('version', $incoming['version'])
+                        ->first();
+
+                    if (! $session) {
+                        continue;
+                    }
+
+                    if ($session->browser_context === null || ! $this->contextsEqual($session->browser_context, $incoming['context'])) {
+                        $session->forceFill(['browser_context' => $incoming['context']])->saveQuietly();
+                    }
+                }
+
+                foreach ($browserRuleTypes as $id => $incoming) {
+                    if (! isset($acceptedRules[$id]) || $acceptedRules[$id] !== $incoming['version']) {
+                        continue;
+                    }
+
+                    $rule = ProjectRule::query()
+                        ->whereKey($id)
+                        ->where('version', $incoming['version'])
+                        ->whereHas('project', fn ($query) => $query->where('user_id', $userId))
+                        ->first();
+
+                    if (! $rule) {
+                        continue;
+                    }
+
+                    if ($rule->rule_type !== $incoming['rule_type']) {
+                        $rule->forceFill(['rule_type' => $incoming['rule_type']])->saveQuietly();
+                    }
+                }
+
+                return $response;
+            });
+
+            return $response;
+        } catch (\Throwable $e) {
+            Log::channel('worktracker_sync')->error('browser_context_sync.atomic_extension_failed', [
+                'user_id' => $request->user()?->getKey(),
+                'device_id' => $request->input('device_id'),
+                'browser_context_changes' => count($browserContexts),
+                'browser_rule_changes' => count($browserRuleTypes),
+                'exception' => $e::class,
+                'message' => $e->getMessage(),
+            ]);
+            throw $e;
         }
-
-        $userId = $request->user()->getKey();
-        $deviceId = (string) $request->input('device_id');
-
-        foreach ($browserContexts as $id => $incoming) {
-            if (! isset($acceptedActivities[$id]) || $acceptedActivities[$id] !== $incoming['version']) {
-                continue;
-            }
-
-            $session = ActivitySession::query()
-                ->whereKey($id)
-                ->where('user_id', $userId)
-                ->where('device_id', $deviceId)
-                ->where('version', $incoming['version'])
-                ->first();
-
-            if (! $session) {
-                continue;
-            }
-
-            if ($session->browser_context === null || ! $this->contextsEqual($session->browser_context, $incoming['context'])) {
-                $session->forceFill(['browser_context' => $incoming['context']])->saveQuietly();
-            }
-        }
-
-        foreach ($browserRuleTypes as $id => $incoming) {
-            if (! isset($acceptedRules[$id]) || $acceptedRules[$id] !== $incoming['version']) {
-                continue;
-            }
-
-            $rule = ProjectRule::query()
-                ->whereKey($id)
-                ->where('version', $incoming['version'])
-                ->whereHas('project', fn ($query) => $query->where('user_id', $userId))
-                ->first();
-
-            if (! $rule) {
-                continue;
-            }
-
-            if ($rule->rule_type !== $incoming['rule_type']) {
-                $rule->forceFill(['rule_type' => $incoming['rule_type']])->saveQuietly();
-            }
-        }
-
-        return $response;
     }
 
     /**
@@ -150,8 +175,9 @@ class BrowserContextSyncController extends SyncController
                         'version' => $version,
                     ];
 
-                    // Keyword is accepted by the legacy validator. The exact Browser* type
-                    // is restored only after the parent transaction accepts this Rule/version.
+                    // Keyword is accepted by the legacy validator. Because the parent Sync
+                    // transaction is now nested inside our outer transaction, this temporary
+                    // compatibility type is never committed independently of the Browser* type.
                     $changes[$index]['payload']['rule_type'] = 'Keyword';
                 }
             }
