@@ -1,6 +1,6 @@
 import { DEFAULT_SETTINGS, normalizeSettings } from "./privacy.js";
 import { buildTabContext } from "./tab-context.js";
-import { publishContext } from "./native-bridge.js";
+import { clearContext, publishContext } from "./native-bridge.js";
 
 const manifest = chrome.runtime.getManifest();
 let scheduled = null;
@@ -17,7 +17,7 @@ chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
 });
 chrome.windows.onFocusChanged.addListener(windowId => {
   if (windowId === chrome.windows.WINDOW_ID_NONE) {
-    void writeStatus({ state: "browser_not_focused", connected: true, lastError: null });
+    void clearPublishedContext("browser_not_focused");
     return;
   }
   schedulePublish(windowId);
@@ -46,7 +46,7 @@ async function publishFocusedTab(preferredWindowId = undefined) {
   const rawSettings = await chrome.storage.local.get(DEFAULT_SETTINGS);
   const settings = normalizeSettings(rawSettings);
   if (!settings.trackingEnabled) {
-    await writeStatus({ state: "disabled", connected: false, lastError: null });
+    await clearPublishedContext("disabled", false);
     return;
   }
 
@@ -60,18 +60,14 @@ async function publishFocusedTab(preferredWindowId = undefined) {
   }
 
   if (!windowInfo?.focused || !Number.isInteger(windowInfo.id)) {
-    await writeStatus({ state: "browser_not_focused", connected: true, lastError: null });
+    await clearPublishedContext("browser_not_focused");
     return;
   }
 
   const [tab] = await chrome.tabs.query({ active: true, windowId: windowInfo.id });
   const context = buildTabContext(tab, true, settings, manifest.version);
   if (!context) {
-    await writeStatus({
-      state: tab?.incognito ? "incognito_ignored" : "page_ignored",
-      connected: true,
-      lastError: null
-    });
+    await clearPublishedContext(tab?.incognito ? "incognito_ignored" : "page_ignored");
     return;
   }
 
@@ -88,8 +84,49 @@ async function publishFocusedTab(preferredWindowId = undefined) {
       nativeWrittenAt: response.written_at_utc || null
     });
   } catch (error) {
-    await writeStatus({ state: "native_host_error", connected: false, lastError: String(error?.message || error) });
+    await writeStatus({
+      state: "native_host_error",
+      connected: false,
+      lastError: String(error?.message || error),
+      host: null,
+      path: null,
+      title: null
+    });
   }
+}
+
+async function clearPublishedContext(state, reportNativeError = true) {
+  let nativeWrittenAt = null;
+  let clearError = null;
+
+  try {
+    const response = await clearContext(state);
+    nativeWrittenAt = response.written_at_utc || null;
+  } catch (error) {
+    clearError = String(error?.message || error);
+  }
+
+  if (clearError && reportNativeError) {
+    await writeStatus({
+      state: "native_host_error",
+      connected: false,
+      lastError: clearError,
+      host: null,
+      path: null,
+      title: null
+    });
+    return;
+  }
+
+  await writeStatus({
+    state,
+    connected: state !== "disabled",
+    lastError: clearError,
+    host: null,
+    path: null,
+    title: null,
+    nativeWrittenAt
+  });
 }
 
 async function ensureDefaults() {
