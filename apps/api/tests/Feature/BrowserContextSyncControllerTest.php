@@ -101,6 +101,36 @@ class BrowserContextSyncControllerTest extends TestCase
         $this->assertSame(['rule_type' => 'BrowserPath', 'version' => 2], $browserRuleTypes[$ruleId]);
     }
 
+    public function test_prepare_changes_preserves_explicit_null_as_a_versioned_context_clear(): void
+    {
+        $activityId = '44444444-4444-4444-8444-444444444444';
+        $request = Request::create('/api/v1/sync', 'POST', [
+            'changes' => [[
+                'entity' => 'activity_session',
+                'id' => $activityId,
+                'version' => 4,
+                'payload' => [
+                    'device_id' => '33333333-3333-4333-8333-333333333333',
+                    'browser_context' => null,
+                ],
+            ]],
+        ]);
+
+        [$changes, $browserContexts] = $this->invokePrivate('prepareChanges', [$request]);
+
+        $this->assertArrayNotHasKey('browser_context', $changes[0]['payload']);
+        $this->assertArrayHasKey($activityId, $browserContexts);
+        $this->assertSame(4, $browserContexts[$activityId]['version']);
+        $this->assertNull($browserContexts[$activityId]['context']);
+    }
+
+    public function test_nullable_context_equality_does_not_treat_clear_as_same_as_context(): void
+    {
+        $this->assertTrue($this->invokePrivate('contextsEqual', [null, null]));
+        $this->assertFalse($this->invokePrivate('contextsEqual', [null, $this->validContext()]));
+        $this->assertFalse($this->invokePrivate('contextsEqual', [$this->validContext(), null]));
+    }
+
     /** @return array<string,mixed> */
     private function validContext(array $override = []): array
     {
