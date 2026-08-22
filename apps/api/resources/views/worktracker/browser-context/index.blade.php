@@ -57,15 +57,41 @@
         </form>
     </x-worktracker.panel>
 
-    <x-worktracker.panel title="Ruleهای فعال مرورگر">
+    <x-worktracker.panel title="Ruleهای مرورگر">
         @forelse($browserRules as $rule)
             <div class="wt-form-card" style="margin-bottom:9px">
-                <div class="wt-row" style="justify-content:space-between">
-                    <div><strong>{{ $rule->project?->name ?: '—' }}</strong> · <span class="wt-badge">{{ $rule->rule_type }}</span></div>
+                <div class="wt-row" style="justify-content:space-between;margin-bottom:8px">
+                    <div><strong>{{ $rule->project?->name ?: '—' }}</strong> · <span class="wt-badge">نسخه {{ $rule->version }}</span></div>
                     <span class="{{ $rule->is_enabled ? 'wt-ok' : 'wt-muted' }}">{{ $rule->is_enabled ? 'فعال' : 'غیرفعال' }}</span>
                 </div>
-                <div class="wt-ltr wt-break" style="margin-top:8px"><code>{{ $rule->operator }} {{ $rule->pattern }}</code></div>
-                <div class="wt-muted" style="margin-top:7px">Weight: {{ $rule->weight }} · Priority: {{ $rule->priority }} · Version: {{ $rule->version }}</div>
+
+                <form method="post" action="{{ route('worktracker.projects.rules.update',[$rule->project_id,$rule]) }}" class="wt-form">
+                    @csrf
+                    <div class="wt-form-grid">
+                        <label>نوع
+                            <select name="rule_type" required>
+                                @foreach(['BrowserHost'=>'Host','BrowserPath'=>'Path','BrowserTitle'=>'Title'] as $value=>$label)
+                                    <option value="{{ $value }}" @selected($rule->rule_type===$value)>{{ $value }} · {{ $label }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+                        <label>عملگر
+                            <select name="operator" required>
+                                @foreach(['contains','equals','starts_with','ends_with','regex'] as $operator)
+                                    <option value="{{ $operator }}" @selected($rule->operator===$operator)>{{ $operator }}</option>
+                                @endforeach
+                            </select>
+                        </label>
+                    </div>
+                    <label>Pattern<input name="pattern" value="{{ $rule->pattern }}" class="wt-ltr" required></label>
+                    <div class="wt-form-grid">
+                        <label>Weight<input name="weight" type="number" min="1" max="200" value="{{ $rule->weight }}" required></label>
+                        <label>Priority<input name="priority" type="number" min="-100000" max="100000" value="{{ $rule->priority }}" required></label>
+                        <label class="wt-check"><input type="checkbox" name="is_enabled" value="1" @checked($rule->is_enabled)> فعال</label>
+                    </div>
+                    <button>ذخیره Browser Rule</button>
+                </form>
+
                 <form method="post" action="{{ route('worktracker.projects.rules.destroy',[$rule->project_id,$rule]) }}" style="margin-top:8px" onsubmit="return confirm('Browser Rule حذف شود؟')">
                     @csrf
                     @method('DELETE')
