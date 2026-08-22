@@ -1,7 +1,8 @@
 param(
     [switch]$SkipWindowsBuild,
     [switch]$SkipLaravelTests,
-    [switch]$SkipPhpStormPlugin
+    [switch]$SkipPhpStormPlugin,
+    [switch]$VerifyPhpStormCompatibility
 )
 
 $ErrorActionPreference = 'Stop'
@@ -29,7 +30,9 @@ if (-not $SkipLaravelTests) {
 
 if (-not $SkipPhpStormPlugin) {
     Write-Host '==> PhpStorm Context Bridge plugin' -ForegroundColor Cyan
-    & (Join-Path $PSScriptRoot 'build-phpstorm-plugin.ps1')
+    $pluginBuildArgs = @{}
+    if ($VerifyPhpStormCompatibility) { $pluginBuildArgs['VerifyCompatibility'] = $true }
+    & (Join-Path $PSScriptRoot 'build-phpstorm-plugin.ps1') @pluginBuildArgs
     if ($LASTEXITCODE -ne 0) { throw 'PhpStorm plugin build failed.' }
 }
 
