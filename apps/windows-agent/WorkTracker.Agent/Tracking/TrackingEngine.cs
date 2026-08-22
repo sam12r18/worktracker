@@ -142,7 +142,8 @@ public sealed class TrackingEngine : IAsyncDisposable
         {
             return string.Equals(ab.Browser, bb.Browser, StringComparison.OrdinalIgnoreCase)
                    && string.Equals(ab.Host, bb.Host, StringComparison.OrdinalIgnoreCase)
-                   && string.Equals(ab.Path, bb.Path, StringComparison.OrdinalIgnoreCase);
+                   && string.Equals(ab.Path, bb.Path, StringComparison.OrdinalIgnoreCase)
+                   && string.Equals(ab.Title ?? string.Empty, bb.Title ?? string.Empty, StringComparison.Ordinal);
         }
 
         if (a.IdeContext is { } ai && b.IdeContext is { } bi)
