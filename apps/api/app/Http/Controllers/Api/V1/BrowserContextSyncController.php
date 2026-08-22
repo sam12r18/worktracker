@@ -14,11 +14,10 @@ use Illuminate\Validation\ValidationException;
 /**
  * Compatibility adapter for the Alpha 8.1 browser-context protocol extension.
  *
- * The established SyncController remains the owner of authentication, conflict
- * handling, activity persistence and Work Event projection. This adapter only
- * validates the new browser payload, removes it before the legacy validator,
- * delegates the sync, then persists browser context for accepted Activities.
- * It also preserves Browser* project-rule types across the legacy rule validator.
+ * SyncController remains the owner of authentication, conflict handling,
+ * Activity persistence and Work Event projection. This adapter validates the
+ * browser extension payload, removes Browser-only fields before delegating to
+ * the stable sync pipeline, and persists them only for accepted entities.
  */
 class BrowserContextSyncController extends SyncController
 {
@@ -27,6 +26,7 @@ class BrowserContextSyncController extends SyncController
     public function __invoke(Request $request, SyncConflictService $conflictService, WorkEventMaterializer $workEvents): JsonResponse
     {
         [$changes, $browserContexts, $browserRuleTypes] = $this->prepareChanges($request);
+        $this->assertReplayConsistency($request, $browserContexts, $browserRuleTypes);
         $request->merge(['changes' => $changes]);
 
         $response = parent::__invoke($request, $conflictService, $workEvents);
@@ -39,49 +39,69 @@ class BrowserContextSyncController extends SyncController
             if (! is_array($row) || empty($row['id']) || empty($row['entity'])) {
                 continue;
             }
+
+            $version = (int) ($row['version'] ?? 0);
             if ($row['entity'] === 'activity_session') {
-                $acceptedActivities[(string) $row['id']] = true;
+                $acceptedActivities[(string) $row['id']] = $version;
             } elseif ($row['entity'] === 'project_rule') {
-                $acceptedRules[(string) $row['id']] = true;
+                $acceptedRules[(string) $row['id']] = $version;
             }
         }
 
         $userId = $request->user()->getKey();
         $deviceId = (string) $request->input('device_id');
 
-        foreach ($browserContexts as $id => $context) {
-            if (! isset($acceptedActivities[$id])) {
+        foreach ($browserContexts as $id => $incoming) {
+            if (! isset($acceptedActivities[$id]) || $acceptedActivities[$id] !== $incoming['version']) {
                 continue;
             }
+
             $session = ActivitySession::query()
                 ->whereKey($id)
                 ->where('user_id', $userId)
                 ->where('device_id', $deviceId)
+                ->where('version', $incoming['version'])
                 ->first();
+
             if (! $session) {
                 continue;
             }
-            $session->forceFill(['browser_context' => $context])->saveQuietly();
+
+            if ($session->browser_context === null || ! $this->contextsEqual($session->browser_context, $incoming['context'])) {
+                $session->forceFill(['browser_context' => $incoming['context']])->saveQuietly();
+            }
         }
 
-        foreach ($browserRuleTypes as $id => $ruleType) {
-            if (! isset($acceptedRules[$id])) {
+        foreach ($browserRuleTypes as $id => $incoming) {
+            if (! isset($acceptedRules[$id]) || $acceptedRules[$id] !== $incoming['version']) {
                 continue;
             }
+
             $rule = ProjectRule::query()
                 ->whereKey($id)
+                ->where('version', $incoming['version'])
                 ->whereHas('project', fn ($query) => $query->where('user_id', $userId))
                 ->first();
+
             if (! $rule) {
                 continue;
             }
-            $rule->forceFill(['rule_type' => $ruleType])->saveQuietly();
+
+            if ($rule->rule_type !== $incoming['rule_type']) {
+                $rule->forceFill(['rule_type' => $incoming['rule_type']])->saveQuietly();
+            }
         }
 
         return $response;
     }
 
-    /** @return array{0:array,1:array<string,array>,2:array<string,string>} */
+    /**
+     * @return array{
+     *   0:array,
+     *   1:array<string,array{context:array<string,mixed>,version:int}>,
+     *   2:array<string,array{rule_type:string,version:int}>
+     * }
+     */
     private function prepareChanges(Request $request): array
     {
         $changes = $request->input('changes', []);
@@ -99,6 +119,7 @@ class BrowserContextSyncController extends SyncController
 
             $entity = (string) ($change['entity'] ?? '');
             $id = (string) ($change['id'] ?? '');
+            $version = (int) ($change['version'] ?? 0);
             if ($id === '') {
                 continue;
             }
@@ -111,23 +132,89 @@ class BrowserContextSyncController extends SyncController
                             "changes.$index.payload.browser_context" => 'Browser context must be an object.',
                         ]);
                     }
-                    $browserContexts[$id] = $this->validateBrowserContext($rawContext, $index);
+
+                    $browserContexts[$id] = [
+                        'context' => $this->validateBrowserContext($rawContext, $index),
+                        'version' => $version,
+                    ];
                 }
+
                 unset($changes[$index]['payload']['browser_context']);
             }
 
             if ($entity === 'project_rule') {
                 $ruleType = (string) ($change['payload']['rule_type'] ?? '');
                 if (in_array($ruleType, self::BROWSER_RULE_TYPES, true)) {
-                    $browserRuleTypes[$id] = $ruleType;
-                    // Keyword is accepted by the legacy validator; the exact Browser* type
-                    // is restored after the parent sync transaction accepts this Rule.
+                    $browserRuleTypes[$id] = [
+                        'rule_type' => $ruleType,
+                        'version' => $version,
+                    ];
+
+                    // Keyword is accepted by the legacy validator. The exact Browser* type
+                    // is restored only after the parent transaction accepts this Rule/version.
                     $changes[$index]['payload']['rule_type'] = 'Keyword';
                 }
             }
         }
 
         return [$changes, $browserContexts, $browserRuleTypes];
+    }
+
+    /**
+     * Same-version retries must be idempotent. Browser metadata may be filled on
+     * a legacy row where it is still NULL, but it must never silently rewrite a
+     * different Context or Browser Rule without a version increment.
+     *
+     * @param array<string,array{context:array<string,mixed>,version:int}> $browserContexts
+     * @param array<string,array{rule_type:string,version:int}> $browserRuleTypes
+     */
+    private function assertReplayConsistency(Request $request, array $browserContexts, array $browserRuleTypes): void
+    {
+        $userId = $request->user()->getKey();
+        $deviceId = (string) $request->input('device_id');
+
+        if ($browserContexts !== []) {
+            $sessions = ActivitySession::query()
+                ->where('user_id', $userId)
+                ->where('device_id', $deviceId)
+                ->whereIn('id', array_keys($browserContexts))
+                ->get(['id', 'version', 'browser_context'])
+                ->keyBy(fn (ActivitySession $session) => (string) $session->getKey());
+
+            foreach ($browserContexts as $id => $incoming) {
+                $existing = $sessions->get($id);
+                if (! $existing || (int) $existing->version !== $incoming['version'] || $existing->browser_context === null) {
+                    continue;
+                }
+
+                if (! $this->contextsEqual($existing->browser_context, $incoming['context'])) {
+                    throw ValidationException::withMessages([
+                        'changes' => "Browser context replay changed without a version increment for activity $id.",
+                    ]);
+                }
+            }
+        }
+
+        if ($browserRuleTypes !== []) {
+            $rules = ProjectRule::query()
+                ->whereIn('id', array_keys($browserRuleTypes))
+                ->whereHas('project', fn ($query) => $query->where('user_id', $userId))
+                ->get(['id', 'version', 'rule_type'])
+                ->keyBy(fn (ProjectRule $rule) => (string) $rule->getKey());
+
+            foreach ($browserRuleTypes as $id => $incoming) {
+                $existing = $rules->get($id);
+                if (! $existing || (int) $existing->version !== $incoming['version']) {
+                    continue;
+                }
+
+                if ((string) $existing->rule_type !== $incoming['rule_type']) {
+                    throw ValidationException::withMessages([
+                        'changes' => "Browser rule type changed without a version increment for rule $id.",
+                    ]);
+                }
+            }
+        }
     }
 
     /** @param array<string,mixed> $context @return array<string,mixed> */
@@ -160,10 +247,24 @@ class BrowserContextSyncController extends SyncController
             ]);
         }
 
+        foreach (['url', 'host', 'path'] as $field) {
+            if (preg_match('/[\x00-\x1F\x7F]/', (string) $validated[$field])) {
+                throw ValidationException::withMessages([
+                    "changes.$index.payload.browser_context.$field" => 'Browser context contains invalid control characters.',
+                ]);
+            }
+        }
+
         $parts = parse_url((string) $validated['url']);
+        if ($parts === false) {
+            throw ValidationException::withMessages([
+                "changes.$index.payload.browser_context.url" => 'Browser URL must be an absolute HTTP(S) URL.',
+            ]);
+        }
+
         $scheme = strtolower((string) ($parts['scheme'] ?? ''));
         $host = strtolower((string) ($parts['host'] ?? ''));
-        if ($parts === false || ! in_array($scheme, ['http', 'https'], true) || $host === '') {
+        if (! in_array($scheme, ['http', 'https'], true) || $host === '') {
             throw ValidationException::withMessages([
                 "changes.$index.payload.browser_context.url" => 'Browser URL must be an absolute HTTP(S) URL.',
             ]);
@@ -198,5 +299,14 @@ class BrowserContextSyncController extends SyncController
         $validated['source'] = 'chrome_extension';
 
         return $validated;
+    }
+
+    /** @param array<string,mixed> $left @param array<string,mixed> $right */
+    private function contextsEqual(array $left, array $right): bool
+    {
+        ksort($left);
+        ksort($right);
+        return json_encode($left, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE)
+            === json_encode($right, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
     }
 }
