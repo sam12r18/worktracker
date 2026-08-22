@@ -37,6 +37,7 @@ internal static class Program
         if (!request.TryGetProperty("action", out var actionElement)) return NativeResponse.Fail("Missing action.");
         var action = actionElement.GetString();
         if (string.Equals(action, "ping", StringComparison.Ordinal)) return NativeResponse.Success();
+        if (string.Equals(action, "context.clear", StringComparison.Ordinal)) return ClearContext();
         if (!string.Equals(action, "context.update", StringComparison.Ordinal)) return NativeResponse.Fail("Unsupported action.");
         if (!request.TryGetProperty("context", out var contextElement)) return NativeResponse.Fail("Missing context.");
 
@@ -45,14 +46,41 @@ internal static class Program
         var sanitized = Sanitize(incoming);
         if (sanitized is null) return NativeResponse.Fail("Context rejected.");
 
-        var directory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "WorkTracker", "browser", "chrome");
+        var directory = GetContextDirectory();
         Directory.CreateDirectory(directory);
-        var target = Path.Combine(directory, "context.json");
+        var target = GetContextPath();
         var temp = Path.Combine(directory, $"context-{Guid.NewGuid():N}.tmp");
         await File.WriteAllTextAsync(temp, JsonSerializer.Serialize(sanitized, Json), new UTF8Encoding(false));
         File.Move(temp, target, overwrite: true);
         return NativeResponse.Success(DateTimeOffset.UtcNow);
     }
+
+    private static NativeResponse ClearContext()
+    {
+        var target = GetContextPath();
+        try
+        {
+            if (File.Exists(target)) File.Delete(target);
+            return NativeResponse.Success(DateTimeOffset.UtcNow);
+        }
+        catch (IOException ex)
+        {
+            return NativeResponse.Fail($"Failed to clear browser context: {ex.Message}");
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return NativeResponse.Fail($"Failed to clear browser context: {ex.Message}");
+        }
+    }
+
+    private static string GetContextDirectory()
+        => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "WorkTracker",
+            "browser",
+            "chrome");
+
+    private static string GetContextPath() => Path.Combine(GetContextDirectory(), "context.json");
 
     private static BrowserContextSnapshot? Sanitize(BrowserContextSnapshot value)
     {
