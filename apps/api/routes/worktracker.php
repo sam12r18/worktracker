@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\WorkTracker\BillingController;
+use App\Http\Controllers\WorkTracker\BrowserContextController;
 use App\Http\Controllers\WorkTracker\InvoiceController;
 use App\Http\Controllers\WorkTracker\WorkReportController;
 use App\Http\Controllers\WorkTracker\WorkEventController;
@@ -44,6 +45,9 @@ Route::middleware(['web', 'auth', RequireWorkTrackerHttps::class, EnsureWorkTrac
         Route::post('/projects/{project}/tasks/{task}', [TaskManagementController::class, 'update'])->name('projects.tasks.update');
         Route::delete('/projects/{project}/tasks/{task}', [TaskManagementController::class, 'destroy'])->name('projects.tasks.destroy');
 
+        Route::get('/browser-context', [BrowserContextController::class, 'index'])->name('browser-context.index');
+        Route::post('/browser-context/rules', [BrowserContextController::class, 'storeRule'])->name('browser-context.rules.store');
+
         Route::get('/customers', [CustomerManagementController::class, 'index'])->name('customers.index');
         Route::post('/customers', [CustomerManagementController::class, 'store'])->name('customers.store');
         Route::get('/customers/{customer}', [CustomerManagementController::class, 'show'])->name('customers.show');
@@ -82,4 +86,3 @@ Route::middleware(['web', 'auth', RequireWorkTrackerHttps::class, EnsureWorkTrac
         Route::get('/invoices/{invoice}/excel', [InvoiceController::class, 'excel'])->name('invoices.excel');
         Route::get('/invoices/{invoice}/print', [InvoiceController::class, 'print'])->name('invoices.print');
     });
-

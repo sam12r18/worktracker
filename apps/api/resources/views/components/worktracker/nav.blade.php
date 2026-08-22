@@ -11,6 +11,7 @@
         $links = [
             ['worktracker.dashboard', 'worktracker.dashboard', 'داشبورد'],
             ['worktracker.projects.*', 'worktracker.projects.index', 'پروژه‌ها'],
+            ['worktracker.browser-context.*', 'worktracker.browser-context.index', 'مرورگر'],
             ['worktracker.customers.*', 'worktracker.customers.index', 'مشتری‌ها'],
             ['worktracker.activities.*', 'worktracker.activities.index', 'فعالیت‌ها'],
             ['worktracker.activity-intelligence.*', 'worktracker.activity-intelligence.index', 'هوشمندی فعالیت'],
