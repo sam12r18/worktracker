@@ -46,10 +46,16 @@ public sealed class BrowserContextBridgeService
 
     public BrowserContextBridgeStatus GetStatus(DateTimeOffset? now = null)
     {
+        if (!File.Exists(_contextPath))
+        {
+            _lastContext = null;
+            return BrowserContextBridgeStatus.Disconnected("Context فعال از افزونه Chrome وجود ندارد.");
+        }
+
         now ??= DateTimeOffset.UtcNow;
         var context = _lastContext;
         if (context is null)
-            return BrowserContextBridgeStatus.Disconnected("Context از افزونه Chrome دریافت نشده است.");
+            return BrowserContextBridgeStatus.Disconnected("Context از افزونه Chrome دریافت شده اما هنوز روی پنجره فعال اعمال نشده است.");
 
         var age = Math.Max(0, (int)Math.Floor((now.Value - context.ObservedAtUtc).TotalSeconds));
         var stale = age > FreshnessWindow.TotalSeconds;
@@ -62,7 +68,7 @@ public sealed class BrowserContextBridgeService
             context.ObservedAtUtc,
             age,
             stale
-                ? "Context قدیمی است؛ تا وقتی عنوان تب با پنجره فعال تطابق دارد قابل استفاده است."
+                ? "Context قدیمی است؛ فقط در صورت تطابق عنوان تب با پنجره فعال استفاده می‌شود."
                 : "Context زنده از افزونه Chrome دریافت می‌شود.");
     }
 
@@ -71,7 +77,11 @@ public sealed class BrowserContextBridgeService
         await _readGate.WaitAsync(ct);
         try
         {
-            if (!File.Exists(_contextPath)) return null;
+            if (!File.Exists(_contextPath))
+            {
+                _lastContext = null;
+                return null;
+            }
 
             BrowserContextSnapshot? context;
             try
@@ -102,7 +112,13 @@ public sealed class BrowserContextBridgeService
             var now = DateTimeOffset.UtcNow;
             var age = now - context.ObservedAtUtc;
             if (age < TimeSpan.FromSeconds(-5) || age > HardStaleWindow) return null;
-            if (age > FreshnessWindow && !TitlesMatch(foreground.WindowTitle, context.Title)) return null;
+
+            // Always bind browser metadata to the actual foreground Chrome window title.
+            // The native host normally deletes context.json as soon as Chrome loses focus,
+            // an excluded/special tab is activated, tracking is disabled, or Incognito is used.
+            // This title check is a second privacy/attribution barrier if that clear message
+            // cannot reach the native host for any reason.
+            if (!TitlesMatch(foreground.WindowTitle, context.Title)) return null;
 
             _lastContext = context;
             return context;
