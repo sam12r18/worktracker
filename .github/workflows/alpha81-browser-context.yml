@@ -1,0 +1,103 @@
+name: Alpha 8.1 Browser Context
+
+on:
+  push:
+    branches:
+      - feature/alpha-8.1-browser-context
+  pull_request:
+    branches:
+      - master
+    paths:
+      - 'apps/chrome-extension/**'
+      - 'apps/windows-agent/WorkTracker.Agent/**'
+      - 'apps/windows-agent/WorkTracker.BrowserBridge/**'
+      - 'apps/api/**'
+      - 'tools/*chrome-native-host*'
+      - 'ALPHA-8.1-BROWSER-CONTEXT.md'
+      - 'docs/architecture/browser-context-bridge.md'
+      - 'docs/testing/alpha8.1-browser-context-smoke-test.md'
+      - '.github/workflows/alpha81-browser-context.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  browser-and-laravel:
+    name: Chrome contract + Laravel tests
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Validate Chrome extension JavaScript and manifest
+        run: |
+          node --check apps/chrome-extension/src/privacy.js
+          node --check apps/chrome-extension/src/tab-context.js
+          node --check apps/chrome-extension/src/native-bridge.js
+          node --check apps/chrome-extension/src/service-worker.js
+          node --check apps/chrome-extension/popup/popup.js
+          node -e "JSON.parse(require('fs').readFileSync('apps/chrome-extension/manifest.json','utf8')); console.log('manifest.json OK')"
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, sqlite3, pdo_sqlite
+          coverage: none
+
+      - name: Install Laravel dependencies
+        working-directory: apps/api
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Run Browser Context contract tests
+        working-directory: apps/api
+        run: php artisan test --filter=BrowserContextSyncControllerTest
+
+      - name: Lint Browser Context PHP files
+        run: |
+          php -l apps/api/app/Http/Controllers/Api/V1/BrowserContextSyncController.php
+          php -l apps/api/app/Http/Controllers/WorkTracker/BrowserContextController.php
+          php -l apps/api/app/Http/Controllers/WorkTracker/ProjectManagementController.php
+          php -l apps/api/app/Http/Controllers/WorkTracker/ProjectRuleManagementController.php
+          php -l apps/api/app/Models/ActivitySession.php
+          php -l apps/api/database/migrations/2026_08_22_180000_add_browser_context_to_activity_sessions.php
+          php -l apps/api/tests/Feature/BrowserContextSyncControllerTest.php
+
+  windows-agent:
+    name: Windows Agent + Native Host build
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Build BrowserBridge
+        shell: pwsh
+        run: dotnet build .\apps\windows-agent\WorkTracker.BrowserBridge\WorkTracker.BrowserBridge.csproj -c Release --nologo
+
+      - name: Build WorkTracker Agent
+        shell: pwsh
+        run: .\tools\build-windows-agent.ps1
+
+      - name: Run Activity Intelligence deterministic self-test
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem .\apps\windows-agent\WorkTracker.Agent\bin\Release -Recurse -Filter WorkTracker.Agent.exe | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $exe) { throw 'WorkTracker.Agent.exe not found after Release build.' }
+          & $exe --self-test-activity-intelligence
+          if ($LASTEXITCODE -ne 0) { throw "Activity Intelligence self-test failed with exit code $LASTEXITCODE" }
+          $result = Join-Path $env:TEMP 'worktracker-activity-intelligence-self-test.txt'
+          if (-not (Test-Path $result)) { throw 'Activity Intelligence self-test result file not found.' }
+          Get-Content $result
