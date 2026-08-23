@@ -10,6 +10,7 @@ import com.intellij.ide.plugins.PluginManagerCore;
 import com.intellij.openapi.Disposable;
 import com.intellij.openapi.application.ApplicationInfo;
 import com.intellij.openapi.application.ReadAction;
+import com.intellij.openapi.diagnostic.Logger;
 import com.intellij.openapi.extensions.PluginId;
 import com.intellij.openapi.fileEditor.FileEditorManager;
 import com.intellij.openapi.project.Project;
@@ -38,17 +39,22 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicLong;
 
 public final class WorkTrackerContextPublisherService implements Disposable {
     private static final int PROTOCOL_VERSION = 1;
     private static final String PLUGIN_ID = "ir.rayaasun.worktracker.context";
     private static final long HEARTBEAT_SECONDS = 2L;
+    private static final long FAILURE_LOG_INTERVAL_MS = 60_000L;
+    private static final Logger LOG = Logger.getInstance(WorkTrackerContextPublisherService.class);
 
     private final Project project;
     private final Gson gson = new GsonBuilder().disableHtmlEscaping().create();
     private final ConcurrentHashMap<ProcessHandler, ExecutionState> executions = new ConcurrentHashMap<>();
     private final AtomicBoolean started = new AtomicBoolean(false);
     private final AtomicBoolean publishQueued = new AtomicBoolean(false);
+    private final AtomicBoolean firstPublishLogged = new AtomicBoolean(false);
+    private final AtomicLong lastFailureLogAt = new AtomicLong(0L);
     private final Path outputFile;
     private volatile ScheduledFuture<?> heartbeat;
 
@@ -62,6 +68,7 @@ public final class WorkTrackerContextPublisherService implements Disposable {
             return;
         }
 
+        LOG.info("WorkTracker Context Bridge started for project '" + project.getName() + "'. Output: " + outputFile);
         publishSoon();
         heartbeat = AppExecutorUtil.getAppScheduledExecutorService().scheduleWithFixedDelay(
             this::publishSafely,
@@ -113,9 +120,17 @@ public final class WorkTrackerContextPublisherService implements Disposable {
         try {
             var snapshot = ReadAction.compute(this::collectContext);
             writeAtomically(snapshot);
-        } catch (Throwable ignored) {
-            // The bridge is diagnostic/enrichment infrastructure. It must never break PhpStorm.
-            // A later heartbeat will retry automatically.
+            if (firstPublishLogged.compareAndSet(false, true)) {
+                LOG.info("WorkTracker Context Bridge published its first context successfully: " + outputFile);
+            }
+        } catch (Throwable error) {
+            // Context enrichment must never break PhpStorm. Failures are rate-limited so a
+            // persistent filesystem/API problem does not flood idea.log every two seconds.
+            var now = System.currentTimeMillis();
+            var previous = lastFailureLogAt.get();
+            if (now - previous >= FAILURE_LOG_INTERVAL_MS && lastFailureLogAt.compareAndSet(previous, now)) {
+                LOG.warn("WorkTracker Context Bridge failed to publish context to " + outputFile, error);
+            }
         }
     }
 
@@ -239,7 +254,8 @@ public final class WorkTrackerContextPublisherService implements Disposable {
         }
         try {
             Files.deleteIfExists(outputFile);
-        } catch (IOException ignored) {
+        } catch (IOException error) {
+            LOG.warn("WorkTracker Context Bridge could not remove context file during dispose: " + outputFile, error);
         }
     }
 
