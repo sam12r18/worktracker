@@ -37,7 +37,8 @@ $registeredManifest = $null
 if (Test-Path $regPath) {
     try { $registeredManifest = (Get-Item $regPath).GetValue('') } catch { }
 }
-Write-Check 'Chrome Native Messaging registry' (-not [string]::IsNullOrWhiteSpace($registeredManifest)) ($registeredManifest ?? 'not registered')
+$registryDetail = if ([string]::IsNullOrWhiteSpace($registeredManifest)) { 'not registered' } else { [string]$registeredManifest }
+Write-Check 'Chrome Native Messaging registry' (-not [string]::IsNullOrWhiteSpace($registeredManifest)) $registryDetail
 
 if (-not [string]::IsNullOrWhiteSpace($registeredManifest)) {
     Write-Check 'Native host manifest file' (Test-Path $registeredManifest) $registeredManifest
@@ -46,8 +47,9 @@ if (-not [string]::IsNullOrWhiteSpace($registeredManifest)) {
             $nativeManifest = Get-Content $registeredManifest -Raw | ConvertFrom-Json
             $origin = @($nativeManifest.allowed_origins) | Select-Object -First 1
             $originId = if ($origin -match '^chrome-extension://(?<id>[a-p]{32})/$') { $Matches.id } else { $null }
+            $originDetail = if ([string]::IsNullOrWhiteSpace([string]$origin)) { 'missing/invalid' } else { [string]$origin }
             Write-Check 'Native host executable' (Test-Path $nativeManifest.path) ([string]$nativeManifest.path)
-            Write-Check 'Allowed Chrome origin' (-not [string]::IsNullOrWhiteSpace($originId)) ($origin ?? 'missing/invalid')
+            Write-Check 'Allowed Chrome origin' (-not [string]::IsNullOrWhiteSpace($originId)) $originDetail
             if ($originId) {
                 Write-Host ("      Extension ID registered with Native Messaging: {0}" -f $originId) -ForegroundColor Cyan
                 Write-Host '      Compare this ID with the WorkTracker card in chrome://extensions.' -ForegroundColor DarkGray
@@ -65,7 +67,7 @@ if (Test-Path $browserContextPath) {
     try {
         $browserContext = Get-Content $browserContextPath -Raw | ConvertFrom-Json
         $observed = [DateTimeOffset]::Parse([string]$browserContext.observed_at_utc)
-        $age = [Math]::Max(0, [int]((Get-Date).ToUniversalTime() - $observed.UtcDateTime).TotalSeconds)
+        $age = [Math]::Max(0, [int]((Get-Date).ToUniversalTime().Subtract($observed.UtcDateTime).TotalSeconds))
         Write-Check 'Chrome browser context' $true ("{0}{1} age={2}s" -f $browserContext.host, $browserContext.path, $age)
     }
     catch {
@@ -97,11 +99,17 @@ if (Test-Path $distributionDir) {
         Sort-Object LastWriteTime -Descending |
         Select-Object -First 1
 }
-Write-Check 'PhpStorm plugin ZIP' ($null -ne $pluginZip) ($(if ($pluginZip) { $pluginZip.FullName } else { 'build artifact not found; run .\tools\build-phpstorm-plugin.ps1' }))
+$pluginZipDetail = if ($pluginZip) { $pluginZip.FullName } else { 'build artifact not found; run .\tools\build-phpstorm-plugin.ps1' }
+Write-Check 'PhpStorm plugin ZIP' ($null -ne $pluginZip) $pluginZipDetail
 
 # Running PhpStorm
 $phpStormProcesses = @(Get-Process phpstorm64 -ErrorAction SilentlyContinue)
-Write-Check 'PhpStorm process' ($phpStormProcesses.Count -gt 0) ($(if ($phpStormProcesses.Count -gt 0) { ($phpStormProcesses | ForEach-Object { "pid=$($_.Id)" }) -join ', ' } else { 'phpstorm64.exe is not running' }))
+$phpStormProcessDetail = if ($phpStormProcesses.Count -gt 0) {
+    ($phpStormProcesses | ForEach-Object { "pid=$($_.Id)" }) -join ', '
+} else {
+    'phpstorm64.exe is not running'
+}
+Write-Check 'PhpStorm process' ($phpStormProcesses.Count -gt 0) $phpStormProcessDetail
 
 # Context heartbeat files
 $ideContextDir = Join-Path $env:LOCALAPPDATA 'WorkTracker\ide\phpstorm'
@@ -111,7 +119,7 @@ if (Test-Path $ideContextDir) {
 }
 if ($ideFiles.Count -gt 0) {
     $latestIde = $ideFiles[0]
-    $ageSeconds = [Math]::Max(0, [int]((Get-Date) - $latestIde.LastWriteTime).TotalSeconds)
+    $ageSeconds = [Math]::Max(0, [int]((Get-Date).Subtract($latestIde.LastWriteTime).TotalSeconds))
     Write-Check 'PhpStorm context heartbeat' ($ageSeconds -le 15) ("{0} age={1}s" -f $latestIde.FullName, $ageSeconds)
     try {
         $ideContext = Get-Content $latestIde.FullName -Raw | ConvertFrom-Json
