@@ -14,44 +14,142 @@ internal static class Program
         WriteIndented = false,
     };
 
-    public static async Task<int> Main()
+    public static async Task<int> Main(string[] args)
     {
+        if (args.Any(x => string.Equals(x, "--diagnostics", StringComparison.OrdinalIgnoreCase)) || !Console.IsInputRedirected)
+        {
+            PrintManualLaunchDiagnostics();
+            return 0;
+        }
+
+        await LogAsync("info", "host.started", new { process_id = Environment.ProcessId });
+
         try
         {
             var request = await ReadMessageAsync(Console.OpenStandardInput());
-            if (request is null) return 0;
+            if (request is null)
+            {
+                await LogAsync("warning", "host.empty_input");
+                return 0;
+            }
+
             var response = await HandleAsync(request.Value);
             await WriteMessageAsync(Console.OpenStandardOutput(), response);
             return response.Ok ? 0 : 2;
         }
         catch (Exception ex)
         {
+            await LogAsync("error", "host.failed", new
+            {
+                exception = ex.GetType().Name,
+                message = ex.Message,
+            });
+
             try { await WriteMessageAsync(Console.OpenStandardOutput(), NativeResponse.Fail(ex.Message)); }
             catch { }
             return 3;
         }
     }
 
+    private static void PrintManualLaunchDiagnostics()
+    {
+        Console.OutputEncoding = Encoding.UTF8;
+        Console.WriteLine("WorkTracker BrowserBridge");
+        Console.WriteLine("-------------------------");
+        Console.WriteLine("This executable is a Chrome Native Messaging host, not a desktop application.");
+        Console.WriteLine("Chrome launches it automatically and communicates through redirected stdin/stdout.");
+        Console.WriteLine();
+        Console.WriteLine($"Executable : {Environment.ProcessPath ?? "-"}");
+        Console.WriteLine($"Context    : {GetContextPath()}");
+        Console.WriteLine($"Log        : {GetLogPath()}");
+        Console.WriteLine($"Manifest   : {GetExpectedManifestPath()}");
+        Console.WriteLine();
+        Console.WriteLine("Install flow:");
+        Console.WriteLine("1. Open chrome://extensions and enable Developer mode.");
+        Console.WriteLine("2. Load unpacked: apps\\chrome-extension");
+        Console.WriteLine("3. Copy the real 32-character extension ID shown by Chrome.");
+        Console.WriteLine("4. Run: .\\tools\\install-chrome-native-host.ps1 -ExtensionId \"<REAL_ID>\"");
+        Console.WriteLine("5. Restart Chrome and enable Browser Context from the extension popup.");
+        Console.WriteLine();
+        Console.WriteLine("Running this EXE manually should not create browser context by itself.");
+    }
+
     private static async Task<NativeResponse> HandleAsync(JsonElement request)
     {
-        if (!request.TryGetProperty("action", out var actionElement)) return NativeResponse.Fail("Missing action.");
+        if (!request.TryGetProperty("action", out var actionElement))
+        {
+            await LogAsync("warning", "request.rejected", new { reason = "missing_action" });
+            return NativeResponse.Fail("Missing action.");
+        }
+
         var action = actionElement.GetString();
-        if (string.Equals(action, "ping", StringComparison.Ordinal)) return NativeResponse.Success();
-        if (string.Equals(action, "context.clear", StringComparison.Ordinal)) return ClearContext();
-        if (!string.Equals(action, "context.update", StringComparison.Ordinal)) return NativeResponse.Fail("Unsupported action.");
-        if (!request.TryGetProperty("context", out var contextElement)) return NativeResponse.Fail("Missing context.");
+        if (string.Equals(action, "ping", StringComparison.Ordinal))
+        {
+            await LogAsync("info", "request.ping");
+            return NativeResponse.Success();
+        }
+
+        if (string.Equals(action, "context.clear", StringComparison.Ordinal))
+        {
+            var response = ClearContext();
+            await LogAsync(response.Ok ? "info" : "warning", "context.clear", new { ok = response.Ok, error = response.Error });
+            return response;
+        }
+
+        if (!string.Equals(action, "context.update", StringComparison.Ordinal))
+        {
+            await LogAsync("warning", "request.rejected", new { reason = "unsupported_action", action });
+            return NativeResponse.Fail("Unsupported action.");
+        }
+
+        if (!request.TryGetProperty("context", out var contextElement))
+        {
+            await LogAsync("warning", "context.rejected", new { reason = "missing_context" });
+            return NativeResponse.Fail("Missing context.");
+        }
 
         var incoming = contextElement.Deserialize<BrowserContextSnapshot>(Json);
-        if (incoming is null) return NativeResponse.Fail("Invalid context.");
+        if (incoming is null)
+        {
+            await LogAsync("warning", "context.rejected", new { reason = "invalid_context" });
+            return NativeResponse.Fail("Invalid context.");
+        }
+
         var sanitized = Sanitize(incoming);
-        if (sanitized is null) return NativeResponse.Fail("Context rejected.");
+        if (sanitized is null)
+        {
+            await LogAsync("warning", "context.rejected", new
+            {
+                reason = "privacy_or_integrity_validation",
+                browser = incoming.Browser,
+                incognito = incoming.Incognito,
+                focused = incoming.Focused,
+            });
+            return NativeResponse.Fail("Context rejected.");
+        }
 
         var directory = GetContextDirectory();
         Directory.CreateDirectory(directory);
         var target = GetContextPath();
         var temp = Path.Combine(directory, $"context-{Guid.NewGuid():N}.tmp");
-        await File.WriteAllTextAsync(temp, JsonSerializer.Serialize(sanitized, Json), new UTF8Encoding(false));
-        File.Move(temp, target, overwrite: true);
+        try
+        {
+            await File.WriteAllTextAsync(temp, JsonSerializer.Serialize(sanitized, Json), new UTF8Encoding(false));
+            File.Move(temp, target, overwrite: true);
+        }
+        finally
+        {
+            try { if (File.Exists(temp)) File.Delete(temp); }
+            catch { }
+        }
+
+        await LogAsync("info", "context.updated", new
+        {
+            host = sanitized.Host,
+            path = sanitized.Path,
+            extension_version = sanitized.ExtensionVersion,
+        });
+
         return NativeResponse.Success(DateTimeOffset.UtcNow);
     }
 
@@ -81,6 +179,43 @@ internal static class Program
             "chrome");
 
     private static string GetContextPath() => Path.Combine(GetContextDirectory(), "context.json");
+
+    private static string GetExpectedManifestPath()
+        => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "WorkTracker",
+            "browser-host",
+            "ir.rayaasun.worktracker.browser.json");
+
+    private static string GetLogPath()
+        => Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "WorkTracker",
+            "logs",
+            $"browser-bridge-{DateTime.UtcNow:yyyy-MM-dd}.log");
+
+    private static async Task LogAsync(string level, string eventName, object? data = null)
+    {
+        try
+        {
+            var path = GetLogPath();
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var line = JsonSerializer.Serialize(new
+            {
+                timestamp_utc = DateTimeOffset.UtcNow,
+                level,
+                category = "browser.bridge",
+                @event = eventName,
+                process_id = Environment.ProcessId,
+                data,
+            }, Json);
+            await File.AppendAllTextAsync(path, line + Environment.NewLine, new UTF8Encoding(false));
+        }
+        catch
+        {
+            // Native Messaging protocol must never fail because diagnostics cannot be written.
+        }
+    }
 
     private static BrowserContextSnapshot? Sanitize(BrowserContextSnapshot value)
     {
