@@ -11,8 +11,10 @@ on:
       - 'apps/chrome-extension/**'
       - 'apps/windows-agent/WorkTracker.Agent/**'
       - 'apps/windows-agent/WorkTracker.BrowserBridge/**'
+      - 'apps/phpstorm-plugin/**'
       - 'apps/api/**'
       - 'tools/*chrome-native-host*'
+      - 'tools/check-context-integrations.ps1'
       - 'ALPHA-8.1-BROWSER-CONTEXT.md'
       - 'docs/architecture/browser-context-bridge.md'
       - 'docs/testing/alpha8.1-browser-context-smoke-test.md'
@@ -83,9 +85,36 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Parse Context integration PowerShell scripts
+        shell: powershell
+        run: |
+          $scripts = @(
+            '.\tools\install-chrome-native-host.ps1',
+            '.\tools\check-context-integrations.ps1'
+          )
+          foreach ($script in $scripts) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path $script), [ref]$tokens, [ref]$errors) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error $_.Message }
+              throw "PowerShell parser errors found in $script"
+            }
+          }
+
       - name: Build BrowserBridge
         shell: pwsh
         run: dotnet build .\apps\windows-agent\WorkTracker.BrowserBridge\WorkTracker.BrowserBridge.csproj -c Release --nologo
+
+      - name: Run BrowserBridge manual diagnostics smoke test
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem .\apps\windows-agent\WorkTracker.BrowserBridge\bin\Release -Recurse -Filter WorkTracker.BrowserBridge.exe | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $exe) { throw 'WorkTracker.BrowserBridge.exe not found after Release build.' }
+          $output = (& $exe --diagnostics | Out-String)
+          if ($LASTEXITCODE -ne 0) { throw "BrowserBridge diagnostics failed with exit code $LASTEXITCODE" }
+          if ($output -notmatch 'Native Messaging host') { throw 'BrowserBridge diagnostics output did not identify Native Messaging host mode.' }
+          Write-Host $output
 
       - name: Build WorkTracker Agent
         shell: pwsh
