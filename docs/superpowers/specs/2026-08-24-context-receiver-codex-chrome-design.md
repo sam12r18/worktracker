@@ -65,20 +65,23 @@ The receiver starts after the local database and device identity are initialized
 
 ## 5. Local transport
 
-Primary transport: loopback HTTP bound only to `127.0.0.1` on an Agent-owned local port.
+Primary transport: loopback HTTP bound only to `127.0.0.1` on a per-install Agent-owned high port.
+
+The Agent writes a small receiver discovery file under `%LOCALAPPDATA%\WorkTracker\context\receiver.json`. This file is configuration only; it never contains activity/context payloads. It contains the active loopback port, protocol version and a random per-install receiver secret. The file is written atomically and access is restricted to the current Windows user. Integrations read this file only to discover the local receiver.
 
 Requirements:
 
 - Never bind to `0.0.0.0`, LAN interfaces or IPv6 wildcard addresses.
 - Use protocol versioning.
-- Require a per-install local secret for non-browser providers.
+- Require the receiver secret on every context write, including BrowserBridge and PhpStorm.
 - Limit request body size.
 - Validate provider id and schema.
 - Rate-limit malformed/rejected traffic.
 - Structured logs under `context.receiver`.
 - No WorkTracker Laravel/Sanctum token is shared with integrations.
+- Never log the receiver secret.
 
-The per-install receiver settings are stored in the Agent's protected local configuration. The secret must not be written to normal diagnostic logs.
+If the discovery file is missing/stale or the Agent is not listening, integrations treat the receiver as unavailable rather than attempting another network destination.
 
 ### 5.1 BrowserBridge authentication
 
@@ -88,13 +91,13 @@ Chrome cannot call the receiver directly with the required trust boundary. The e
 Chrome Extension -> WorkTracker.BrowserBridge.exe -> ContextReceiverService
 ```
 
-BrowserBridge is a short-lived adapter. It receives Native Messaging frames, sanitizes browser metadata, forwards the sanitized envelope to the Agent receiver, returns an acknowledgement to Chrome, and exits.
+BrowserBridge is a short-lived adapter. It receives Native Messaging frames, sanitizes browser metadata, reads receiver discovery settings owned by the current user, forwards the sanitized envelope with the receiver secret, returns an acknowledgement to Chrome, and exits.
 
-BrowserBridge obtains receiver connection details from Agent-owned local configuration. It never stores Laravel credentials.
+BrowserBridge never stores Laravel credentials and never persists browser context as its normal transport.
 
 ### 5.2 PhpStorm authentication
 
-The PhpStorm plugin posts its protocol envelope to the local receiver using the per-install local secret. If the Agent is unavailable, the plugin fails silently from the user's editing perspective but logs a rate-limited warning to `idea.log`.
+The PhpStorm plugin reads the receiver discovery file and posts its protocol envelope to the local receiver using the per-install receiver secret. If the Agent is unavailable, the plugin fails silently from the user's editing perspective but logs a rate-limited warning to `idea.log`.
 
 ## 6. Context Envelope v1
 
@@ -194,23 +197,23 @@ The corrected flow is:
 4. publish to BrowserBridge;
 5. keep the Agent-side foreground-process/title check as the final attribution barrier.
 
-The extension must not rely on opening its popup as proof of Chrome focus because the popup/devtools can alter focus state during diagnostics.
+Diagnostics must be executed from the extension Service Worker inspection console, not a normal web-page DevTools console. The extension must not rely on opening its popup as proof of Chrome focus because the popup/devtools can alter focus state during diagnostics.
 
 ## 9. JSON migration
 
-Current paths:
+Current legacy context paths:
 
-- `%LOCALAPPDATA%\\WorkTracker\\ide\\phpstorm\\context-*.json`
-- `%LOCALAPPDATA%\\WorkTracker\\browser\\chrome\\context.json`
+- `%LOCALAPPDATA%\WorkTracker\ide\phpstorm\context-*.json`
+- `%LOCALAPPDATA%\WorkTracker\browser\chrome\context.json`
 
 Migration policy:
 
 1. Receiver transport becomes primary.
 2. PhpStorm and Chrome retain file transport for one compatibility window only if explicitly enabled as fallback.
 3. Diagnostics distinguish `receiver` from `legacy_file` transport.
-4. After receiver reliability is proven in Alpha 8.1 regression, legacy JSON transport is removed.
+4. After receiver reliability is proven in Alpha 8.1 regression, legacy context JSON transport is removed.
 
-JSON may remain for logs or test fixtures, but not as the normal provider-to-Agent IPC mechanism.
+The receiver discovery file from section 5 is configuration, not a context transport. JSON may also remain for structured logs or test fixtures.
 
 ## 10. ContextHub behavior
 
@@ -379,25 +382,25 @@ Receiver unavailable during Agent shutdown/startup:
 
 ## 17. Delivery sequence
 
-1. Add receiver contract and in-memory store inside Windows Agent.
+1. Add receiver contract, discovery settings and in-memory store inside Windows Agent.
 2. Add receiver unit/self-tests.
-3. Change BrowserBridge from file writer to receiver forwarder; retain optional legacy fallback temporarily.
+3. Change BrowserBridge from context-file writer to receiver forwarder; retain optional legacy fallback temporarily.
 4. Fix Chrome active-window/tab selection and diagnostics.
-5. Change PhpStorm publisher from file heartbeat to receiver heartbeat; retain optional legacy fallback temporarily.
+5. Change PhpStorm publisher from context-file heartbeat to receiver heartbeat; retain optional legacy fallback temporarily.
 6. Change Agent providers to consume the receiver store.
 7. Add unified Integrations diagnostics UI.
 8. Add Codex diagnostic probe.
-9. Run Alpha 8.1 regression and only then remove legacy JSON transport.
+9. Run Alpha 8.1 regression and only then remove legacy context JSON transport.
 
 ## 18. Acceptance criteria
 
 Alpha 8.1 Context integration is ready when:
 
-- Chrome and PhpStorm enrich activities without JSON being the primary IPC transport;
+- Chrome and PhpStorm enrich activities without JSON being the primary context IPC transport;
 - Chrome Native Messaging reports connected on a focused supported tab;
 - PhpStorm structured context is visible in Agent diagnostics;
 - context provider failure never stops foreground time tracking;
-- receiver is loopback-only and authenticated where applicable;
+- receiver is loopback-only and all writes are authenticated with the local receiver secret;
 - no Laravel token is exposed to integrations;
 - Codex probe produces enough evidence to decide whether a stable production provider is feasible;
 - all existing Activity Intelligence/continuity regression tests remain green.
