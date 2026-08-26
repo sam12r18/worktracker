@@ -19,6 +19,8 @@ public sealed class BrowserContextBridgeService : IContextProvider
     private BrowserContextSnapshot? _lastContext;
     private string? _lastLoggedSignature;
 
+    public static BrowserContextBridgeService Shared { get; } = new();
+
     public BrowserContextBridgeService(string? root = null)
     {
         root ??= Path.Combine(
@@ -145,10 +147,10 @@ public sealed class BrowserContextBridgeService : IContextProvider
             if (age < TimeSpan.FromSeconds(-5) || age > HardStaleWindow) return null;
 
             // Always bind browser metadata to the actual foreground Chrome window title.
-            // The native host normally deletes context.json as soon as Chrome loses focus,
-            // an excluded/special tab is activated, tracking is disabled, or Incognito is used.
-            // This title check is a second privacy/attribution barrier if that clear message
-            // cannot reach the native host for any reason.
+            // The native host normally deletes context.json as soon as tracking is disabled,
+            // an excluded/special tab is activated, or Incognito is used. Transient popup or
+            // DevTools focus changes are not treated as proof that the candidate is invalid.
+            // This title check remains the final privacy/attribution barrier.
             if (!TitlesMatch(foreground.WindowTitle, context.Title)) return null;
 
             _lastContext = context;
