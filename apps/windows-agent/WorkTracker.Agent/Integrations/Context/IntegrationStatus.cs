@@ -1,4 +1,5 @@
 using WorkTracker.Agent.Integrations.Browser;
+using WorkTracker.Agent.Integrations.Codex;
 using WorkTracker.Agent.Integrations.Ide;
 
 namespace WorkTracker.Agent.Integrations.Context;
@@ -54,6 +55,26 @@ public sealed record IntegrationStatus(
             State: state,
             Transport: "native->json",
             AgeSeconds: status.ObservedAtUtc is null ? null : status.AgeSeconds,
+            Summary: summary,
+            Message: status.Message);
+    }
+
+    public static IntegrationStatus FromCodex(CodexProbeStatus status, DateTimeOffset? now = null)
+    {
+        now ??= DateTimeOffset.UtcNow;
+        var age = Math.Max(0, (int)Math.Floor((now.Value - status.ObservedAtUtc).TotalSeconds));
+        var summary = !string.IsNullOrWhiteSpace(status.ProjectPath)
+            ? status.ProjectPath!
+            : status.ForegroundDetected
+                ? "foreground detected · workspace unresolved"
+                : "-";
+
+        return new IntegrationStatus(
+            ProviderId: "codex",
+            DisplayName: "Codex",
+            State: status.State,
+            Transport: "internal-probe",
+            AgeSeconds: status.ForegroundDetected ? age : null,
             Summary: summary,
             Message: status.Message);
     }
