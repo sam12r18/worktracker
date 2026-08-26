@@ -13,8 +13,13 @@ function Write-Check([string]$Name, [bool]$Ok, [string]$Detail) {
     if (-not $Ok) { $failures.Add($Name) }
 }
 
+function Write-Info([string]$Name, [string]$Detail) {
+    Write-Host ("[INFO] {0}: {1}" -f $Name, $Detail) -ForegroundColor DarkGray
+}
+
 Write-Host 'WorkTracker Context Integration Diagnostics' -ForegroundColor Cyan
 Write-Host ('Repo: ' + $repoRoot) -ForegroundColor DarkGray
+Write-Host 'Transports: Chrome=native->json | PhpStorm=json | Codex=internal-probe' -ForegroundColor DarkGray
 Write-Host ''
 
 # Chrome extension source
@@ -68,14 +73,14 @@ if (Test-Path $browserContextPath) {
         $browserContext = Get-Content $browserContextPath -Raw | ConvertFrom-Json
         $observed = [DateTimeOffset]::Parse([string]$browserContext.observed_at_utc)
         $age = [Math]::Max(0, [int]((Get-Date).ToUniversalTime().Subtract($observed.UtcDateTime).TotalSeconds))
-        Write-Check 'Chrome browser context' $true ("{0}{1} age={2}s" -f $browserContext.host, $browserContext.path, $age)
+        Write-Check 'Chrome browser context [native->json]' $true ("{0}{1} age={2}s" -f $browserContext.host, $browserContext.path, $age)
     }
     catch {
-        Write-Check 'Chrome browser context' $false ("exists but cannot be parsed: {0}" -f $_.Exception.Message)
+        Write-Check 'Chrome browser context [native->json]' $false ("exists but cannot be parsed: {0}" -f $_.Exception.Message)
     }
 }
 else {
-    Write-Check 'Chrome browser context' $false 'context.json not present (expected until extension is enabled on a focused HTTPS tab)'
+    Write-Check 'Chrome browser context [native->json]' $false 'context.json not present; enable the extension and open a supported HTTP/HTTPS tab'
 }
 
 $bridgeLog = Join-Path $env:LOCALAPPDATA ("WorkTracker\logs\browser-bridge-{0}.log" -f (Get-Date).ToUniversalTime().ToString('yyyy-MM-dd'))
@@ -85,11 +90,11 @@ if (Test-Path $bridgeLog) {
     Get-Content $bridgeLog -Tail 6 | ForEach-Object { Write-Host ('      ' + $_) -ForegroundColor DarkGray }
 }
 else {
-    Write-Check 'BrowserBridge log' $false "$bridgeLog not found (new build writes this after Chrome invokes the host)"
+    Write-Check 'BrowserBridge log' $false "$bridgeLog not found (the host writes it after Chrome invokes Native Messaging)"
 }
 
 Write-Host ''
-Write-Host 'PhpStorm Context Bridge' -ForegroundColor Cyan
+Write-Host 'PhpStorm Context Bridge [json]' -ForegroundColor Cyan
 
 # Build artifact
 $distributionDir = Join-Path $repoRoot 'apps\phpstorm-plugin\build\distributions'
@@ -120,7 +125,7 @@ if (Test-Path $ideContextDir) {
 if ($ideFiles.Count -gt 0) {
     $latestIde = $ideFiles[0]
     $ageSeconds = [Math]::Max(0, [int]((Get-Date).Subtract($latestIde.LastWriteTime).TotalSeconds))
-    Write-Check 'PhpStorm context heartbeat' ($ageSeconds -le 15) ("{0} age={1}s" -f $latestIde.FullName, $ageSeconds)
+    Write-Check 'PhpStorm context heartbeat [json]' ($ageSeconds -le 15) ("{0} age={1}s" -f $latestIde.FullName, $ageSeconds)
     try {
         $ideContext = Get-Content $latestIde.FullName -Raw | ConvertFrom-Json
         Write-Host ("      project={0} file={1} mode={2} plugin={3}" -f $ideContext.project_name, $ideContext.current_file, $ideContext.execution_mode, $ideContext.plugin_version) -ForegroundColor DarkGray
@@ -128,7 +133,7 @@ if ($ideFiles.Count -gt 0) {
     catch { }
 }
 else {
-    Write-Check 'PhpStorm context heartbeat' $false "$ideContextDir contains no context files"
+    Write-Check 'PhpStorm context heartbeat [json]' $false "$ideContextDir contains no context files"
 }
 
 # JetBrains logs can confirm plugin start/publish failures.
@@ -156,8 +161,35 @@ if ($ideaLog) {
 }
 
 Write-Host ''
+Write-Host 'Codex Context Probe [internal-probe]' -ForegroundColor Cyan
+$codexProcesses = @(Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.ProcessName -like '*codex*' })
+$codexProcessDetail = if ($codexProcesses.Count -gt 0) {
+    ($codexProcesses | ForEach-Object { "name=$($_.ProcessName) pid=$($_.Id)" }) -join ', '
+} else {
+    'Codex process is not running'
+}
+Write-Info 'Codex process' $codexProcessDetail
+
+$agentLog = Get-ChildItem (Join-Path $env:LOCALAPPDATA 'WorkTracker\logs') -Filter 'agent-*.log' -File -ErrorAction SilentlyContinue |
+    Sort-Object LastWriteTime -Descending |
+    Select-Object -First 1
+if ($agentLog) {
+    $codexMatches = Select-String -Path $agentLog.FullName -Pattern 'context.codex.probe' -SimpleMatch -ErrorAction SilentlyContinue | Select-Object -Last 8
+    if ($codexMatches) {
+        Write-Info 'Codex probe log' $agentLog.FullName
+        $codexMatches | ForEach-Object { Write-Host ('      ' + $_.Line.Trim()) -ForegroundColor DarkGray }
+    }
+    else {
+        Write-Info 'Codex probe log' 'no probe entry yet; focus Codex for 3-5 seconds while WorkTracker Agent is tracking'
+    }
+}
+else {
+    Write-Info 'Agent log' 'no agent-*.log file found yet'
+}
+
+Write-Host ''
 if ($failures.Count -eq 0) {
-    Write-Host 'All observable Context integration checks passed.' -ForegroundColor Green
+    Write-Host 'All required observable Context integration checks passed.' -ForegroundColor Green
     exit 0
 }
 
