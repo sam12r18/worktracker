@@ -4,6 +4,8 @@
 
 Chrome Extension is a **context provider**, not a time tracker. Time ownership remains in the Windows Agent: foreground observation, idle detection, session boundaries, additive effort semantics, Continuity Bridge, local SQLite persistence and sync/outbox.
 
+Alpha 8.1 intentionally keeps the existing JSON transport. There is no Context Receiver / localhost HTTP / Named Pipe migration in this version.
+
 ## Flow
 
 ```text
@@ -12,6 +14,7 @@ Chrome MV3 Extension
   -> WorkTracker.BrowserBridge.exe
   -> %LOCALAPPDATA%\WorkTracker\browser\chrome\context.json
   -> BrowserContextBridgeService
+  -> ContextHubService
   -> ForegroundSnapshot.BrowserContext
   -> Project / Activity Type classification
   -> ActivitySession.browser_context_json
@@ -23,25 +26,40 @@ The extension never calls Laravel directly and never stores a WorkTracker API to
 
 ## Privacy contract
 
-Collected: active/focused normal-tab title, host, path, normalized URL without query/fragment/credentials, tab/window ids, observation timestamp and extension version.
+Collected: eligible active normal-tab title, host, path, normalized URL without query/fragment/credentials, tab/window ids, observation timestamp and extension version.
 
 Never collected: page body, form values, cookies, LocalStorage, passwords, clipboard, request/response bodies or arbitrary content-script data.
 
 Tracking is opt-in and disabled by default. Incognito is ignored.
 
+## Candidate selection and focus
+
+`chrome.windows.getLastFocused().focused` is not used as a final truth signal. Extension popup/DevTools and other transient UI can make Chrome report `focused=false` while the last-focused normal Chrome window still has the relevant active tab.
+
+Selection rules:
+
+- when a Chrome event supplies a valid `windowId`, query `{ active: true, windowId }`;
+- otherwise query `{ active: true, lastFocusedWindow: true }`;
+- if no candidate tab is available, publish no Browser Context;
+- the Windows Agent remains the final attribution barrier and only applies Browser Context to an actual foreground Chrome observation whose title matches the candidate tab.
+
+This prevents the extension's own popup/DevTools from causing false `browser_not_focused` failures without weakening Agent-side attribution.
+
 ## Clearing active context
 
-`context.json` represents only the currently eligible Chrome context. It is not a browsing-history file.
+`context.json` is the latest eligible Chrome candidate, not a browsing-history file.
 
 The extension sends Native Messaging action `context.clear` when:
 
 - Browser Context tracking is disabled;
-- Chrome loses foreground focus;
-- the active tab is Incognito;
-- the active page is a non-HTTP(S) Chrome/internal page;
-- privacy/exclusion settings make the active tab ineligible.
+- the selected active tab is Incognito;
+- the selected active page is a non-HTTP(S) Chrome/internal page;
+- privacy/exclusion settings make the selected tab ineligible;
+- no eligible active Chrome candidate can be resolved.
 
-`WorkTracker.BrowserBridge` deletes `context.json` for `context.clear`. This prevents the previously tracked tab from being reused after the user moves into an ignored/private context.
+A transient desktop focus change alone does **not** require deleting the file. When another desktop application is foreground, `BrowserContextBridgeService` refuses to enrich it because the foreground process is not Chrome. When Chrome becomes relevant again, its tab/window events refresh the candidate.
+
+`WorkTracker.BrowserBridge` deletes `context.json` for `context.clear`. This prevents a prior eligible tab from being reused after the user moves into an ignored/private Chrome context.
 
 ## Attribution and freshness defense
 
@@ -53,7 +71,19 @@ The Windows Agent independently validates the local bridge file even if Native M
 - **Every** Browser Context must match the actual foreground Chrome window title before it can enrich a `ForegroundSnapshot`; this is not limited to stale Context.
 - Context older than 30 seconds is marked stale for diagnostics/UI, but can still be used during long uninterrupted work only while the foreground title continues to match.
 
-This double barrier avoids a short stale-attribution window when switching tabs or entering ignored contexts.
+This double barrier avoids stale attribution when switching tabs or entering ignored contexts.
+
+## Context Hub
+
+`BrowserContextBridgeService`, `IdeContextBridgeService` and internal probes implement the common `IContextProvider` interface and are orchestrated by `ContextHubService`.
+
+Providers may use different acquisition mechanisms:
+
+- Chrome: `native->json`;
+- PhpStorm: `json`;
+- Codex diagnostic probe: `internal-probe`.
+
+A provider exception is isolated and logged; it must never stop foreground time tracking.
 
 ## Server defense in depth
 
