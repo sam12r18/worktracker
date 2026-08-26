@@ -1,45 +1,91 @@
+using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Threading;
 using WorkTracker.Agent.Integrations.Browser;
+using WorkTracker.Agent.Integrations.Codex;
+using WorkTracker.Agent.Integrations.Context;
 
 namespace WorkTracker.Agent;
 
 public partial class MainWindow
 {
-    private readonly BrowserContextBridgeService _browserStatusBridge = new();
-    private DispatcherTimer? _browserStatusTimer;
+    private readonly BrowserContextBridgeService _browserStatusBridge = BrowserContextBridgeService.Shared;
+    private readonly CodexContextProbe _codexStatusProbe = CodexContextProbe.Shared;
+    private DispatcherTimer? _integrationStatusTimer;
+    private TextBlock? _chromeIntegrationStatusText;
+    private TextBlock? _codexIntegrationStatusText;
 
     protected override void OnContentRendered(EventArgs e)
     {
         base.OnContentRendered(e);
 
-        if (_browserStatusTimer is null)
+        EnsureIntegrationStatusRows();
+
+        if (_integrationStatusTimer is null)
         {
-            _browserStatusTimer = new DispatcherTimer
+            _integrationStatusTimer = new DispatcherTimer
             {
                 Interval = TimeSpan.FromSeconds(5),
             };
-            _browserStatusTimer.Tick += (_, _) => RefreshBrowserContextHeader();
-            _browserStatusTimer.Start();
+            _integrationStatusTimer.Tick += (_, _) => RefreshIntegrationStatuses();
+            _integrationStatusTimer.Start();
         }
 
-        RefreshBrowserContextHeader();
+        RefreshIntegrationStatuses();
     }
 
-    private void RefreshBrowserContextHeader()
+    private void EnsureIntegrationStatusRows()
     {
-        var status = _browserStatusBridge.GetStatus();
-        var machine = Environment.MachineName;
-        var shortDeviceId = _deviceId[..Math.Min(10, _deviceId.Length)];
+        if (_chromeIntegrationStatusText is not null && _codexIntegrationStatusText is not null) return;
+        if (IdeContextStatusText.Parent is not Panel parent) return;
 
-        if (!status.Connected)
+        var ideIndex = parent.Children.IndexOf(IdeContextStatusText);
+        if (ideIndex < 0) return;
+
+        _chromeIntegrationStatusText = CreateIntegrationStatusTextBlock();
+        _codexIntegrationStatusText = CreateIntegrationStatusTextBlock();
+        parent.Children.Insert(ideIndex + 1, _chromeIntegrationStatusText);
+        parent.Children.Insert(ideIndex + 2, _codexIntegrationStatusText);
+    }
+
+    private static TextBlock CreateIntegrationStatusTextBlock()
+        => new()
         {
-            DeviceText.Text = $"دستگاه: {machine} · {shortDeviceId} · Chrome Context: —";
-            return;
-        }
+            Margin = new Thickness(0, 4, 0, 0),
+            FontSize = 11,
+            Opacity = 0.78,
+            TextWrapping = TextWrapping.Wrap,
+        };
 
-        var path = Shorten(status.Path, 46);
-        var age = status.Stale ? $" · {status.AgeSeconds}s" : string.Empty;
-        DeviceText.Text = $"دستگاه: {machine} · {shortDeviceId} · Chrome: {status.Host}{path}{age}";
+    private void RefreshIntegrationStatuses()
+    {
+        var ide = IntegrationStatus.FromIde(_ideContext.GetStatus());
+        var browser = IntegrationStatus.FromBrowser(_browserStatusBridge.GetStatus());
+        var codex = IntegrationStatus.FromCodex(_codexStatusProbe.GetStatus());
+
+        IdeContextStatusText.Text = FormatIntegrationStatus(ide);
+        if (_chromeIntegrationStatusText is not null)
+            _chromeIntegrationStatusText.Text = FormatIntegrationStatus(browser);
+        if (_codexIntegrationStatusText is not null)
+            _codexIntegrationStatusText.Text = FormatIntegrationStatus(codex);
+    }
+
+    private static string FormatIntegrationStatus(IntegrationStatus status)
+    {
+        var state = status.State switch
+        {
+            "connected" => "متصل",
+            "stale" => "قدیمی",
+            "disconnected" => "قطع",
+            "resolved" => "Probe: مسیر پیدا شد",
+            "ambiguous" => "Probe: مبهم",
+            "probe" => "Probe",
+            "idle" => "غیرفعال",
+            _ => status.State,
+        };
+        var age = status.AgeSeconds is null ? string.Empty : $" · {status.AgeSeconds}s";
+        var summary = status.Summary == "-" ? status.Message : Shorten(status.Summary, 110);
+        return $"{status.DisplayName}: {state} · {status.Transport}{age} · {summary}";
     }
 
     private static string Shorten(string? value, int maxLength)
