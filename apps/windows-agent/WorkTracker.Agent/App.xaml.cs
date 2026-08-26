@@ -6,6 +6,7 @@ using System.Windows;
 using WorkTracker.Agent.Classification;
 using WorkTracker.Agent.Diagnostics;
 using WorkTracker.Agent.Integrations.Browser;
+using WorkTracker.Agent.Integrations.Codex;
 using WorkTracker.Agent.Integrations.Context;
 using WorkTracker.Agent.Integrations.Ide;
 using WorkTracker.Agent.Services;
@@ -34,10 +35,13 @@ public partial class App : System.Windows.Application
 
         if (e.Args.Any(x => string.Equals(x, "--self-test-activity-intelligence", StringComparison.OrdinalIgnoreCase)))
         {
-            var failures = ActivityIntelligenceSelfTest.Run();
+            var failures = ActivityIntelligenceSelfTest.Run().ToList();
+            failures.AddRange(IntegrationStatusSelfTest.Run());
+            failures.AddRange(CodexContextProbeSelfTest.Run());
+
             var output = Path.Combine(Path.GetTempPath(), "worktracker-activity-intelligence-self-test.txt");
             IEnumerable<string> lines = failures.Count == 0
-                ? new[] { "PASS: Activity Intelligence deterministic scenarios" }
+                ? new[] { "PASS: Activity Intelligence and Context Integration deterministic scenarios" }
                 : failures.Select(x => $"FAIL: {x}");
             File.WriteAllLines(output, lines);
             Environment.ExitCode = failures.Count == 0 ? 0 : 2;
@@ -76,11 +80,13 @@ public partial class App : System.Windows.Application
             var classifier = new ProjectClassificationService(projects);
             var activityTypeInference = new ActivityTypeInferenceService(activityTypes, activityTypeRules, projects);
             var ideContext = new IdeContextBridgeService();
-            var browserContext = new BrowserContextBridgeService();
+            var browserContext = BrowserContextBridgeService.Shared;
+            var codexProbe = CodexContextProbe.Shared;
             var contextHub = new ContextHubService(new IContextProvider[]
             {
                 ideContext,
                 browserContext,
+                codexProbe,
             });
             var corrections = new ActivityCorrectionService(repository, classifier);
             var syncSettings = new SyncSettingsStore(database);
