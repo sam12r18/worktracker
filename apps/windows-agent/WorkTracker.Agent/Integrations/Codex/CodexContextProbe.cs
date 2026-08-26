@@ -43,7 +43,7 @@ public sealed class CodexContextProbe : IContextProvider
 
         if (!LooksLikeCodex(snapshot.ProcessName))
         {
-            SetStatus(CodexProbeStatus.NotForeground(now));
+            MarkNotForeground();
             return snapshot;
         }
 
@@ -165,6 +165,20 @@ public sealed class CodexContextProbe : IContextProvider
         if (string.IsNullOrWhiteSpace(text)) return;
         if (results.Any(x => string.Equals(x, text, StringComparison.Ordinal))) return;
         results.Add(text);
+    }
+
+    private void MarkNotForeground()
+    {
+        lock (_statusGate)
+        {
+            if (!_status.ForegroundDetected) return;
+            _status = _status with
+            {
+                ForegroundDetected = false,
+                State = "last-seen",
+                Message = "آخرین نتیجه Codex Probe نگه داشته شده است؛ Codex اکنون foreground نیست.",
+            };
+        }
     }
 
     private void SetStatus(CodexProbeStatus status)
