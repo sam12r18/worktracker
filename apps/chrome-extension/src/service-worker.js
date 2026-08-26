@@ -1,5 +1,6 @@
 import { DEFAULT_SETTINGS, normalizeSettings } from "./privacy.js";
 import { buildTabContext } from "./tab-context.js";
+import { queryForCandidate } from "./tab-selection.js";
 import { clearContext, publishContext } from "./native-bridge.js";
 
 const manifest = chrome.runtime.getManifest();
@@ -17,7 +18,10 @@ chrome.tabs.onUpdated.addListener((_tabId, changeInfo, tab) => {
 });
 chrome.windows.onFocusChanged.addListener(windowId => {
   if (windowId === chrome.windows.WINDOW_ID_NONE) {
-    void clearPublishedContext("browser_not_focused");
+    // Popup/DevTools and other transient focus changes can make Chrome report no focused
+    // browser window even though the last-focused normal Chrome window still has a valid
+    // active tab. Defer to lastFocusedWindow selection instead of clearing immediately.
+    schedulePublish();
     return;
   }
   schedulePublish(windowId);
@@ -50,21 +54,19 @@ async function publishFocusedTab(preferredWindowId = undefined) {
     return;
   }
 
-  let windowInfo;
+  let candidate;
   try {
-    windowInfo = Number.isInteger(preferredWindowId) && preferredWindowId !== chrome.windows.WINDOW_ID_NONE
-      ? await chrome.windows.get(preferredWindowId)
-      : await chrome.windows.getLastFocused();
+    candidate = await queryForCandidate(chrome, preferredWindowId);
   } catch {
-    windowInfo = null;
+    candidate = { tab: null, windowId: null };
   }
 
-  if (!windowInfo?.focused || !Number.isInteger(windowInfo.id)) {
+  const tab = candidate.tab;
+  if (!tab) {
     await clearPublishedContext("browser_not_focused");
     return;
   }
 
-  const [tab] = await chrome.tabs.query({ active: true, windowId: windowInfo.id });
   const context = buildTabContext(tab, true, settings, manifest.version);
   if (!context) {
     await clearPublishedContext(tab?.incognito ? "incognito_ignored" : "page_ignored");
