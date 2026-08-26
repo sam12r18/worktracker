@@ -39,10 +39,14 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Run Chrome active-tab selection tests
+        run: node --test apps/chrome-extension/tests/tab-selection.test.mjs
+
       - name: Validate Chrome extension JavaScript and manifest
         run: |
           node --check apps/chrome-extension/src/privacy.js
           node --check apps/chrome-extension/src/tab-context.js
+          node --check apps/chrome-extension/src/tab-selection.js
           node --check apps/chrome-extension/src/native-bridge.js
           node --check apps/chrome-extension/src/service-worker.js
           node --check apps/chrome-extension/popup/popup.js
