@@ -10,7 +10,7 @@ namespace WorkTracker.Agent.Integrations.Codex;
 public sealed class CodexContextProbe : IContextProvider
 {
     private static readonly Regex WindowsPathRegex = new(
-        @"(?<![A-Za-z0-9_])(?<path>[A-Za-z]:\\(?:[^\\/:*?\""<>|\r\n]+\\)*[^\\/:*?\""<>|\r\n]+)",
+        "(?<![A-Za-z0-9_])(?<path>[A-Za-z]:\\\\(?:[^\\\\/:*?\\\"<>|\\r\\n]+\\\\)*[^\\\\/:*?\\\"<>|\\r\\n]+)",
         RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private const int MaxWindowTexts = 64;
