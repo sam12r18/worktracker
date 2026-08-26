@@ -80,6 +80,7 @@ public partial class MainWindow
             "resolved" => "Probe: مسیر پیدا شد",
             "ambiguous" => "Probe: مبهم",
             "probe" => "Probe",
+            "last-seen" => "آخرین مشاهده",
             "idle" => "غیرفعال",
             _ => status.State,
         };
