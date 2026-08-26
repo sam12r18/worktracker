@@ -1,4 +1,5 @@
 using WorkTracker.Agent.Integrations.Browser;
+using WorkTracker.Agent.Integrations.Codex;
 using WorkTracker.Agent.Integrations.Ide;
 
 namespace WorkTracker.Agent.Integrations.Context;
@@ -41,6 +42,18 @@ public static class IntegrationStatusSelfTest
         var disconnected = IntegrationStatus.FromBrowser(BrowserContextBridgeStatus.Disconnected("missing"));
         if (disconnected.State != "disconnected" || disconnected.AgeSeconds is not null)
             failures.Add("integration status maps disconnected provider without age");
+
+        var now = DateTimeOffset.UtcNow;
+        var codex = IntegrationStatus.FromCodex(new CodexProbeStatus(
+            ForegroundDetected: true,
+            ProcessId: 123,
+            State: "probe",
+            ProjectPath: null,
+            Signal: "window_text",
+            Message: "unresolved",
+            ObservedAtUtc: now), now);
+        if (codex.Transport != "internal-probe" || codex.State != "probe" || codex.AgeSeconds != 0)
+            failures.Add("integration status maps Codex probe to internal-probe");
 
         return failures;
     }
