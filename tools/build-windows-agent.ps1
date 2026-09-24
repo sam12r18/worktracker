@@ -89,8 +89,8 @@ if (-not (Test-Path $selfTestExe)) {
     throw "WorkTracker.Agent.exe not found after Release build: $selfTestExe"
 }
 if (Test-Path $selfTestOutput) { Remove-Item $selfTestOutput -Force }
-& $selfTestExe '--self-test-activity-intelligence'
-$selfTestExit = $LASTEXITCODE
+$selfTestProcess = Start-Process -FilePath $selfTestExe -ArgumentList @('--self-test-activity-intelligence') -Wait -PassThru
+$selfTestExit = $selfTestProcess.ExitCode
 if (Test-Path $selfTestOutput) {
     Get-Content $selfTestOutput | ForEach-Object { Write-Host "    $_" }
 }
