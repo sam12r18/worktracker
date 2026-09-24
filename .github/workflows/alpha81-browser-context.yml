@@ -14,6 +14,7 @@ on:
       - 'apps/phpstorm-plugin/**'
       - 'apps/api/**'
       - 'tools/*chrome-native-host*'
+      - 'tools/build-windows-agent.ps1'
       - 'tools/check-context-integrations.ps1'
       - 'ALPHA-8.1-BROWSER-CONTEXT.md'
       - 'docs/architecture/browser-context-bridge.md'
@@ -94,7 +95,8 @@ jobs:
         run: |
           $scripts = @(
             '.\tools\install-chrome-native-host.ps1',
-            '.\tools\check-context-integrations.ps1'
+            '.\tools\check-context-integrations.ps1',
+            '.\tools\build-windows-agent.ps1'
           )
           foreach ($script in $scripts) {
             $tokens = $null
@@ -129,8 +131,9 @@ jobs:
         run: |
           $exe = Get-ChildItem .\apps\windows-agent\WorkTracker.Agent\bin\Release -Recurse -Filter WorkTracker.Agent.exe | Select-Object -First 1 -ExpandProperty FullName
           if (-not $exe) { throw 'WorkTracker.Agent.exe not found after Release build.' }
-          & $exe --self-test-activity-intelligence
-          if ($LASTEXITCODE -ne 0) { throw "Activity Intelligence self-test failed with exit code $LASTEXITCODE" }
           $result = Join-Path $env:TEMP 'worktracker-activity-intelligence-self-test.txt'
+          if (Test-Path $result) { Remove-Item $result -Force }
+          $process = Start-Process -FilePath $exe -ArgumentList @('--self-test-activity-intelligence') -Wait -PassThru
           if (-not (Test-Path $result)) { throw 'Activity Intelligence self-test result file not found.' }
           Get-Content $result
+          if ($process.ExitCode -ne 0) { throw "Activity Intelligence self-test failed with exit code $($process.ExitCode)" }
