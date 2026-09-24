@@ -28,6 +28,7 @@ public partial class App : System.Windows.Application
     private ProjectPulseWidget? _widget;
     private SyncEngine? _sync;
     private HttpClient? _http;
+    private LocalLaravelServerService? _localLaravel;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -42,7 +43,7 @@ public partial class App : System.Windows.Application
 
             var output = Path.Combine(Path.GetTempPath(), "worktracker-activity-intelligence-self-test.txt");
             IEnumerable<string> lines = failures.Count == 0
-                ? new[] { "PASS: Activity Intelligence and Context Integration deterministic scenarios" }
+                ? new[] { "PASS: Activity Intelligence, Context Integration and local Laravel startup deterministic scenarios" }
                 : failures.Select(x => $"FAIL: {x}");
             File.WriteAllLines(output, lines);
             Environment.ExitCode = failures.Count == 0 ? 0 : 2;
@@ -93,7 +94,11 @@ public partial class App : System.Windows.Application
             var syncSettings = new SyncSettingsStore(database);
             // Apply one-time sync protocol migrations (including checkpoint reset) before
             // the background loop can issue its first request.
-            _ = await syncSettings.LoadAsync();
+            var loadedSyncSettings = await syncSettings.LoadAsync();
+
+            _localLaravel = new LocalLaravelServerService();
+            await _localLaravel.EnsureReadyAsync(loadedSyncSettings.ApiBaseUrl);
+
             var outbox = new SyncOutboxRepository(database);
             var applier = new RemoteChangeApplier(database);
 
@@ -156,6 +161,11 @@ public partial class App : System.Windows.Application
         catch (Exception ex)
         {
             await AgentLog.ErrorAsync("app", "WorkTracker Agent startup failed", ex);
+            if (_localLaravel is not null)
+            {
+                await _localLaravel.DisposeAsync();
+                _localLaravel = null;
+            }
             MessageBox.Show(
                 $"راه‌اندازی WorkTracker ناموفق بود.\n\n{ex.Message}",
                 "WorkTracker",
@@ -206,6 +216,12 @@ public partial class App : System.Windows.Application
             await _sync.DisposeAsync();
         }
 
+        if (_localLaravel is not null)
+        {
+            await _localLaravel.DisposeAsync();
+            _localLaravel = null;
+        }
+
         _http?.Dispose();
         _tray?.Dispose();
         Shutdown();
@@ -213,6 +229,9 @@ public partial class App : System.Windows.Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _localLaravel?.Dispose();
+        _localLaravel = null;
+
         if (_singleInstanceMutex is not null)
         {
             try
