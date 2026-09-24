@@ -37,7 +37,7 @@ public partial class MainWindow
     private void EnsureIntegrationStatusRows()
     {
         if (_chromeIntegrationStatusText is not null && _codexIntegrationStatusText is not null) return;
-        if (IdeContextStatusText.Parent is not Panel parent) return;
+        if (IdeContextStatusText.Parent is not System.Windows.Controls.Panel parent) return;
 
         var ideIndex = parent.Children.IndexOf(IdeContextStatusText);
         if (ideIndex < 0) return;
