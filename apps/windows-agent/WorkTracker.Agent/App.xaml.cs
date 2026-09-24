@@ -38,6 +38,7 @@ public partial class App : System.Windows.Application
             var failures = ActivityIntelligenceSelfTest.Run().ToList();
             failures.AddRange(IntegrationStatusSelfTest.Run());
             failures.AddRange(CodexContextProbeSelfTest.Run());
+            failures.AddRange(LocalLaravelServerSelfTest.Run());
 
             var output = Path.Combine(Path.GetTempPath(), "worktracker-activity-intelligence-self-test.txt");
             IEnumerable<string> lines = failures.Count == 0
