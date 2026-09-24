@@ -83,10 +83,13 @@ Invoke-DotNetStep -Label 'restore' -Arguments @('restore', $project)
 Invoke-DotNetStep -Label 'build Release' -Arguments @('build', $project, '-c', 'Release', '--no-restore')
 
 Write-Host '==> Activity Intelligence deterministic self-test'
-$selfTestDll = Join-Path $agentRoot 'bin\Release\net10.0-windows\WorkTracker.Agent.dll'
+$selfTestExe = Join-Path $agentRoot 'bin\Release\net10.0-windows\WorkTracker.Agent.exe'
 $selfTestOutput = Join-Path ([System.IO.Path]::GetTempPath()) 'worktracker-activity-intelligence-self-test.txt'
+if (-not (Test-Path $selfTestExe)) {
+    throw "WorkTracker.Agent.exe not found after Release build: $selfTestExe"
+}
 if (Test-Path $selfTestOutput) { Remove-Item $selfTestOutput -Force }
-& dotnet $selfTestDll '--self-test-activity-intelligence'
+& $selfTestExe '--self-test-activity-intelligence'
 $selfTestExit = $LASTEXITCODE
 if (Test-Path $selfTestOutput) {
     Get-Content $selfTestOutput | ForEach-Object { Write-Host "    $_" }
