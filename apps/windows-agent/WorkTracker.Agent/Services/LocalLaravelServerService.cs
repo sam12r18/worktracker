@@ -1,6 +1,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Net;
+using System.Net.Http;
 using WorkTracker.Agent.Diagnostics;
 
 namespace WorkTracker.Agent.Services;
