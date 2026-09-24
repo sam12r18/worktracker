@@ -1,3 +1,4 @@
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -135,14 +136,14 @@ public sealed class CodexContextProbe : IContextProvider
         if (processId <= 0) return Array.Empty<string>();
 
         var results = new List<string>();
-        EnumWindows((window, _) =>
+        EnumWindows((window, lParam) =>
         {
             if (results.Count >= MaxWindowTexts) return false;
-            _ = GetWindowThreadProcessId(window, out var ownerProcessId);
+            GetWindowThreadProcessId(window, out var ownerProcessId);
             if (ownerProcessId != (uint)processId) return true;
 
             AddWindowText(window, results);
-            EnumChildWindows(window, (child, _) =>
+            EnumChildWindows(window, (child, childLParam) =>
             {
                 if (results.Count >= MaxWindowTexts) return false;
                 AddWindowText(child, results);
