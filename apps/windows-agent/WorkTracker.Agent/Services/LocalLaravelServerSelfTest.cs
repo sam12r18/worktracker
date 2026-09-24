@@ -60,8 +60,22 @@ public static class LocalLaravelServerSelfTest
             "HTTPS loopback API must not be replaced by php artisan serve HTTP");
 
         var emptyPlan = buildPlan.Invoke(null, new object?[] { "", apiDirectory });
-        Expect(failures, emptyPlan is null,
-            "empty API configuration must not trigger a local Laravel process");
+        Expect(failures, emptyPlan is not null,
+            "empty API configuration must fall back to the local development API for Laravel auto-start");
+        if (emptyPlan is not null)
+        {
+            var planType = emptyPlan.GetType();
+            var healthUri = planType.GetProperty("HealthUri")?.GetValue(emptyPlan)?.ToString();
+            var port = planType.GetProperty("Port")?.GetValue(emptyPlan);
+            var host = planType.GetProperty("Host")?.GetValue(emptyPlan)?.ToString();
+
+            Expect(failures, string.Equals(healthUri, "http://127.0.0.1:8082/worktracker/health", StringComparison.OrdinalIgnoreCase),
+                "empty API configuration must use the default local health URI");
+            Expect(failures, Equals(port, 8082),
+                "empty API configuration must use local development port 8082");
+            Expect(failures, string.Equals(host, "127.0.0.1", StringComparison.OrdinalIgnoreCase),
+                "empty API configuration must use 127.0.0.1 for local Laravel auto-start");
+        }
 
         return failures;
     }
