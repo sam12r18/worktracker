@@ -14,6 +14,8 @@ internal sealed record LocalLaravelLaunchPlan(
 
 public sealed class LocalLaravelServerService : IAsyncDisposable, IDisposable
 {
+    internal const string DefaultLocalApiBaseUrl = "http://127.0.0.1:8082";
+
     private static readonly TimeSpan HealthTimeout = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan StartupRetryDelay = TimeSpan.FromMilliseconds(500);
     private const int StartupHealthAttempts = 12;
@@ -36,12 +38,29 @@ public sealed class LocalLaravelServerService : IAsyncDisposable, IDisposable
 
     public async Task EnsureReadyAsync(string? apiBaseUrl, CancellationToken ct = default)
     {
-        var target = BuildTarget(apiBaseUrl);
+        var usingDefaultLocalOrigin = string.IsNullOrWhiteSpace(apiBaseUrl);
+        var effectiveApiBaseUrl = usingDefaultLocalOrigin ? DefaultLocalApiBaseUrl : apiBaseUrl;
+        var target = BuildTarget(effectiveApiBaseUrl);
         if (target is null)
+        {
+            await AgentLog.InfoAsync("laravel.local", "local Laravel auto-start not applicable for configured API origin", new
+            {
+                api_base_url = apiBaseUrl,
+            });
             return;
+        }
 
         try
         {
+            if (usingDefaultLocalOrigin)
+            {
+                await AgentLog.InfoAsync("laravel.local", "local Laravel auto-start using default development API origin", new
+                {
+                    configured_api_base_url = apiBaseUrl,
+                    effective_api_base_url = effectiveApiBaseUrl,
+                });
+            }
+
             var initialProbe = await ProbeHealthAsync(target.HealthUri, ct);
             if (initialProbe.Kind == HealthProbeKind.Healthy)
             {
@@ -76,7 +95,7 @@ public sealed class LocalLaravelServerService : IAsyncDisposable, IDisposable
                 return;
             }
 
-            var plan = BuildLaunchPlan(apiBaseUrl, apiDirectory);
+            var plan = BuildLaunchPlan(effectiveApiBaseUrl, apiDirectory);
             if (plan is null)
                 return;
 
@@ -91,6 +110,7 @@ public sealed class LocalLaravelServerService : IAsyncDisposable, IDisposable
             await AgentLog.ErrorAsync("laravel.local", "local Laravel startup check failed; Agent will continue offline", ex, new
             {
                 api_base_url = apiBaseUrl,
+                effective_api_base_url = effectiveApiBaseUrl,
             });
         }
     }
@@ -110,8 +130,11 @@ public sealed class LocalLaravelServerService : IAsyncDisposable, IDisposable
 
     private static LocalLaravelTarget? BuildTarget(string? apiBaseUrl)
     {
-        if (string.IsNullOrWhiteSpace(apiBaseUrl) ||
-            !Uri.TryCreate(apiBaseUrl.Trim(), UriKind.Absolute, out var uri) ||
+        var effectiveApiBaseUrl = string.IsNullOrWhiteSpace(apiBaseUrl)
+            ? DefaultLocalApiBaseUrl
+            : apiBaseUrl.Trim();
+
+        if (!Uri.TryCreate(effectiveApiBaseUrl, UriKind.Absolute, out var uri) ||
             !string.Equals(uri.Scheme, Uri.UriSchemeHttp, StringComparison.OrdinalIgnoreCase) ||
             !IsLoopbackHost(uri.Host))
             return null;
