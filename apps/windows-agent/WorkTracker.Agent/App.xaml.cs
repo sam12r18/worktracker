@@ -46,7 +46,7 @@ public partial class App : System.Windows.Application
                 : failures.Select(x => $"FAIL: {x}");
             File.WriteAllLines(output, lines);
             Environment.ExitCode = failures.Count == 0 ? 0 : 2;
-            Shutdown(Environment.ExitCode);
+            Environment.Exit(Environment.ExitCode);
             return;
         }
 
