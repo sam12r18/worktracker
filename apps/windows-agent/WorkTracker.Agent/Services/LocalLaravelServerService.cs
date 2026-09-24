@@ -16,11 +16,13 @@ public sealed class LocalLaravelServerService : IAsyncDisposable, IDisposable
     private static readonly TimeSpan HealthTimeout = TimeSpan.FromSeconds(2);
     private static readonly TimeSpan StartupRetryDelay = TimeSpan.FromMilliseconds(500);
     private const int StartupHealthAttempts = 12;
+    private const int CapturedProcessLineLimit = 80;
 
     private readonly HttpClient _healthClient;
+    private readonly object _outputGate = new();
+    private readonly Queue<string> _stdoutLines = new();
+    private readonly Queue<string> _stderrLines = new();
     private Process? _ownedProcess;
-    private Task<string>? _stdoutTask;
-    private Task<string>? _stderrTask;
     private int _disposed;
 
     public LocalLaravelServerService()
@@ -174,7 +176,11 @@ public sealed class LocalLaravelServerService : IAsyncDisposable, IDisposable
             health_url = plan.HealthUri.ToString(),
         });
 
+        ClearCapturedOutput();
         var process = new Process { StartInfo = startInfo };
+        process.OutputDataReceived += (_, e) => CaptureLine(_stdoutLines, e.Data);
+        process.ErrorDataReceived += (_, e) => CaptureLine(_stderrLines, e.Data);
+
         if (!process.Start())
         {
             process.Dispose();
@@ -183,8 +189,8 @@ public sealed class LocalLaravelServerService : IAsyncDisposable, IDisposable
         }
 
         _ownedProcess = process;
-        _stdoutTask = process.StandardOutput.ReadToEndAsync(ct);
-        _stderrTask = process.StandardError.ReadToEndAsync(ct);
+        process.BeginOutputReadLine();
+        process.BeginErrorReadLine();
 
         for (var attempt = 1; attempt <= StartupHealthAttempts; attempt++)
         {
@@ -217,6 +223,8 @@ public sealed class LocalLaravelServerService : IAsyncDisposable, IDisposable
                     health_url = plan.HealthUri.ToString(),
                     status_code = probe.StatusCode,
                     attempt,
+                    stdout = CapturedTail(_stdoutLines),
+                    stderr = CapturedTail(_stderrLines),
                 });
                 await StopOwnedProcessAsync();
                 return;
@@ -224,13 +232,12 @@ public sealed class LocalLaravelServerService : IAsyncDisposable, IDisposable
 
             if (process.HasExited)
             {
-                var output = await CollectProcessOutputAsync();
                 await AgentLog.WarnAsync("laravel.local", "php artisan serve exited before health check succeeded", new
                 {
                     pid = process.Id,
                     exit_code = process.ExitCode,
-                    stdout = Tail(output.Stdout),
-                    stderr = Tail(output.Stderr),
+                    stdout = CapturedTail(_stdoutLines),
+                    stderr = CapturedTail(_stderrLines),
                     attempt,
                 });
                 ReleaseExitedProcess();
@@ -240,13 +247,12 @@ public sealed class LocalLaravelServerService : IAsyncDisposable, IDisposable
             await Task.Delay(StartupRetryDelay, ct);
         }
 
-        var finalOutput = await CollectProcessOutputIfCompletedAsync();
         await AgentLog.WarnAsync("laravel.local", "local Laravel backend did not become healthy within startup timeout", new
         {
             pid = process.Id,
             health_url = plan.HealthUri.ToString(),
-            stdout = Tail(finalOutput.Stdout),
-            stderr = Tail(finalOutput.Stderr),
+            stdout = CapturedTail(_stdoutLines),
+            stderr = CapturedTail(_stderrLines),
         });
         await StopOwnedProcessAsync();
     }
@@ -329,6 +335,36 @@ public sealed class LocalLaravelServerService : IAsyncDisposable, IDisposable
         return null;
     }
 
+    private void ClearCapturedOutput()
+    {
+        lock (_outputGate)
+        {
+            _stdoutLines.Clear();
+            _stderrLines.Clear();
+        }
+    }
+
+    private void CaptureLine(Queue<string> queue, string? line)
+    {
+        if (string.IsNullOrWhiteSpace(line)) return;
+        lock (_outputGate)
+        {
+            queue.Enqueue(line);
+            while (queue.Count > CapturedProcessLineLimit)
+                queue.Dequeue();
+        }
+    }
+
+    private string? CapturedTail(Queue<string> queue)
+    {
+        lock (_outputGate)
+        {
+            if (queue.Count == 0) return null;
+            var text = string.Join(Environment.NewLine, queue);
+            return text.Length <= 1600 ? text : text[^1600..];
+        }
+    }
+
     private async Task StopOwnedProcessAsync()
     {
         var process = Interlocked.Exchange(ref _ownedProcess, null);
@@ -365,8 +401,6 @@ public sealed class LocalLaravelServerService : IAsyncDisposable, IDisposable
         finally
         {
             process.Dispose();
-            _stdoutTask = null;
-            _stderrTask = null;
         }
     }
 
@@ -374,35 +408,6 @@ public sealed class LocalLaravelServerService : IAsyncDisposable, IDisposable
     {
         var process = Interlocked.Exchange(ref _ownedProcess, null);
         process?.Dispose();
-        _stdoutTask = null;
-        _stderrTask = null;
-    }
-
-    private async Task<(string? Stdout, string? Stderr)> CollectProcessOutputAsync()
-    {
-        var stdout = _stdoutTask is null ? null : await SafeAwaitAsync(_stdoutTask);
-        var stderr = _stderrTask is null ? null : await SafeAwaitAsync(_stderrTask);
-        return (stdout, stderr);
-    }
-
-    private async Task<(string? Stdout, string? Stderr)> CollectProcessOutputIfCompletedAsync()
-    {
-        var stdout = _stdoutTask is { IsCompleted: true } ? await SafeAwaitAsync(_stdoutTask) : null;
-        var stderr = _stderrTask is { IsCompleted: true } ? await SafeAwaitAsync(_stderrTask) : null;
-        return (stdout, stderr);
-    }
-
-    private static async Task<string?> SafeAwaitAsync(Task<string> task)
-    {
-        try { return await task; }
-        catch { return null; }
-    }
-
-    private static string? Tail(string? value, int maxLength = 1600)
-    {
-        if (string.IsNullOrWhiteSpace(value)) return null;
-        var text = value.Trim();
-        return text.Length <= maxLength ? text : text[^maxLength..];
     }
 
     public async ValueTask DisposeAsync()
